@@ -24,6 +24,11 @@ export type ProcessEntry = {
 
 type JobStatus = "idle" | "running" | "success" | "failed";
 
+type QuickstartResult = {
+  gatewayReady?: boolean;
+  probeOk?: boolean;
+} | null;
+
 export type StatusResponse = {
   ok: boolean;
   now: string;
@@ -73,6 +78,11 @@ type OnboardingState = {
   cliJobStatus: JobStatus;
   cliLogs: string[];
   cliJobError: string | null;
+  quickstartJobId: string | null;
+  quickstartJobStatus: JobStatus;
+  quickstartLogs: string[];
+  quickstartJobError: string | null;
+  quickstartResult: QuickstartResult;
   authHeader: string | null;
   authRequired: boolean;
   authConfigured: boolean;
@@ -97,6 +107,11 @@ type OnboardingState = {
     probeOk?: boolean;
   }>;
   startCliInstallJob: () => Promise<{ ok: boolean; error?: string }>;
+  startQuickstartJob: (opts: { runProbe?: boolean; startGateway?: boolean }) => Promise<{
+    ok: boolean;
+    error?: string;
+    result?: QuickstartResult;
+  }>;
 };
 
 const DEFAULT_API_BASE =
@@ -119,6 +134,11 @@ export const useOnboardingStore = create<OnboardingState>()(
       cliJobStatus: "idle",
       cliLogs: [],
       cliJobError: null,
+      quickstartJobId: null,
+      quickstartJobStatus: "idle",
+      quickstartLogs: [],
+      quickstartJobError: null,
+      quickstartResult: null,
       authHeader: null,
       authRequired: false,
       authConfigured: false,
@@ -280,6 +300,66 @@ export const useOnboardingStore = create<OnboardingState>()(
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           set({ cliJobStatus: "failed", cliJobError: message });
+          return { ok: false, error: message };
+        }
+      },
+      startQuickstartJob: async (opts) => {
+        const { apiBase, authHeader } = get();
+        set({
+          quickstartJobStatus: "running",
+          quickstartLogs: [],
+          quickstartJobError: null,
+          quickstartResult: null,
+          quickstartJobId: null
+        });
+        let finalError: string | null = null;
+        let finalResult: QuickstartResult = null;
+        try {
+          const res = await fetch(`${apiBase}/api/jobs/quickstart`, {
+            method: "POST",
+            headers: { "content-type": "application/json", ...authHeaders(authHeader) },
+            body: JSON.stringify({
+              runProbe: Boolean(opts?.runProbe),
+              startGateway: opts?.startGateway !== false
+            })
+          });
+          if (!res.ok) throw new Error(`Job create failed: ${res.status}`);
+          const data = (await res.json()) as { ok: boolean; jobId?: string; error?: string };
+          if (!data.ok || !data.jobId) {
+            throw new Error(data.error ?? "Job create failed");
+          }
+          set({ quickstartJobId: data.jobId });
+          await streamJobEvents(`${apiBase}/api/jobs/${data.jobId}/stream`, authHeader, (event) => {
+            if (event.type === "log") {
+              set((state) => ({
+                quickstartLogs: [...state.quickstartLogs, event.message].slice(-200)
+              }));
+            } else if (event.type === "status") {
+              if (event.status === "success") {
+                set({ quickstartJobStatus: "success" });
+              } else if (event.status === "failed") {
+                set({ quickstartJobStatus: "failed" });
+              } else {
+                set({ quickstartJobStatus: "running" });
+              }
+            } else if (event.type === "done") {
+              const result = (event.result ?? null) as QuickstartResult;
+              finalResult = result;
+              set({ quickstartJobStatus: "success", quickstartResult: result });
+            } else if (event.type === "error") {
+              finalError = event.error;
+              set({ quickstartJobStatus: "failed", quickstartJobError: event.error });
+            }
+          });
+          await get().refresh();
+          const resolvedStatus = get().quickstartJobStatus;
+          if (resolvedStatus === "failed") {
+            return { ok: false, error: finalError ?? "Job failed" };
+          }
+          return { ok: true, result: finalResult };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          set({ quickstartJobStatus: "failed", quickstartJobError: message });
           return { ok: false, error: message };
         }
       },

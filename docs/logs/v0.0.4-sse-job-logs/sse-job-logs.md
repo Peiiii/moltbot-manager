@@ -26,13 +26,13 @@ curl -s -X POST http://127.0.0.1:17321/api/jobs/cli-install \
 { "ok": true, "jobId": "..." }
 ```
 
-### 创建 Quickstart Job
+### 创建 Quickstart Job（网关启动/通道探测）
 
 ```bash
 curl -s -X POST http://127.0.0.1:17321/api/jobs/quickstart \
   -H 'content-type: application/json' \
   -u admin:pass \
-  -d '{"startGateway": false, "runProbe": false}'
+  -d '{"startGateway": true, "runProbe": true}'
 ```
 
 ### 查询 Job

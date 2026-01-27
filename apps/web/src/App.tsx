@@ -24,7 +24,7 @@ export default function App() {
     startCliInstallJob,
     setDiscordToken,
     approveDiscordPairing,
-    quickstart
+    startQuickstartJob
   } = useOnboardingStore();
 
   const [currentStep, setCurrentStep] = useState<WizardStep>("auth");
@@ -53,6 +53,8 @@ export default function App() {
   const authHeader = useOnboardingStore((state) => state.authHeader);
   const cliLogs = useOnboardingStore((state) => state.cliLogs);
   const cliJobStatus = useOnboardingStore((state) => state.cliJobStatus);
+  const quickstartLogs = useOnboardingStore((state) => state.quickstartLogs);
+  const quickstartJobStatus = useOnboardingStore((state) => state.quickstartJobStatus);
 
   // Polling
   useEffect(() => {
@@ -67,23 +69,39 @@ export default function App() {
 
   // Auto-start gateway on mount
   useEffect(() => {
-    if (autoStarted || !status || !cliInstalled || (authRequired && !authHeader)) return;
+    if (
+      autoStarted ||
+      !status ||
+      !cliInstalled ||
+      (authRequired && !authHeader) ||
+      quickstartJobStatus === "running"
+    ) {
+      return;
+    }
     if (gatewayOk) {
       setAutoStarted(true);
       return;
     }
     const run = async () => {
       setMessage("正在自动启动网关...");
-      const result = await quickstart({ startGateway: true, runProbe: false });
-      if (result.ok) {
-        setMessage("网关正在启动中...");
-      } else {
+      const result = await startQuickstartJob({ startGateway: true, runProbe: false });
+      if (!result.ok) {
         setMessage(`启动失败: ${result.error}`);
+      } else {
+        setMessage("网关正在启动中...");
       }
       setAutoStarted(true);
     };
     void run();
-  }, [autoStarted, status, gatewayOk, authRequired, authHeader, quickstart]);
+  }, [
+    autoStarted,
+    status,
+    gatewayOk,
+    authRequired,
+    authHeader,
+    quickstartJobStatus,
+    startQuickstartJob
+  ]);
 
   // Auto-advance steps based on current state
   useEffect(() => {
@@ -156,8 +174,8 @@ export default function App() {
     if (result.ok) {
       setPairingInput("");
       setMessage("配对成功！正在验证通道...");
-      const probe = await quickstart({ runProbe: true, startGateway: true });
-      if (probe.ok && probe.probeOk) {
+      const probe = await startQuickstartJob({ runProbe: true, startGateway: true });
+      if (probe.ok && probe.result?.probeOk) {
         setProbeMessage("通道探测通过。");
       } else if (probe.ok) {
         setProbeMessage("通道探测未通过，请重试。");
@@ -168,20 +186,20 @@ export default function App() {
       setMessage(`配对失败: ${result.error}`);
     }
     setIsProcessing(false);
-  }, [pairingInput, approveDiscordPairing, quickstart]);
+  }, [pairingInput, approveDiscordPairing, startQuickstartJob]);
 
   const handleRetry = useCallback(async () => {
     setIsProcessing(true);
     setMessage("正在重启网关...");
-    await quickstart({ startGateway: true, runProbe: false });
+    await startQuickstartJob({ startGateway: true, runProbe: false });
     setIsProcessing(false);
-  }, [quickstart]);
+  }, [startQuickstartJob]);
 
   const handleProbe = useCallback(async () => {
     setIsProcessing(true);
     setProbeMessage("正在探测通道...");
-    const probe = await quickstart({ runProbe: true, startGateway: true });
-    if (probe.ok && probe.probeOk) {
+    const probe = await startQuickstartJob({ runProbe: true, startGateway: true });
+    if (probe.ok && probe.result?.probeOk) {
       setProbeMessage("通道探测通过。");
     } else if (probe.ok) {
       setProbeMessage("通道探测未通过，请重试。");
@@ -189,7 +207,7 @@ export default function App() {
       setProbeMessage(`通道探测失败: ${probe.error ?? "unknown"}`);
     }
     setIsProcessing(false);
-  }, [quickstart]);
+  }, [startQuickstartJob]);
 
   // Keyboard shortcut: Enter to submit
   useEffect(() => {
@@ -279,6 +297,8 @@ export default function App() {
                 autoStarted={autoStarted}
                 message={message}
                 isProcessing={isProcessing}
+                logs={quickstartLogs}
+                jobStatus={quickstartJobStatus}
                 onRetry={handleRetry}
               />
             )}
@@ -308,6 +328,8 @@ export default function App() {
               <ProbeStep
                 isProcessing={isProcessing}
                 message={probeMessage}
+                logs={quickstartLogs}
+                jobStatus={quickstartJobStatus}
                 onRetry={handleProbe}
               />
             )}

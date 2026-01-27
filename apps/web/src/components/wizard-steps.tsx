@@ -174,10 +174,20 @@ interface GatewayStepProps {
     autoStarted: boolean;
     message: string | null;
     isProcessing: boolean;
+    logs: string[];
+    jobStatus: string;
     onRetry: () => void;
 }
 
-export function GatewayStep({ isReady, autoStarted, message, isProcessing, onRetry }: GatewayStepProps) {
+export function GatewayStep({
+    isReady,
+    autoStarted,
+    message,
+    isProcessing,
+    logs,
+    jobStatus,
+    onRetry
+}: GatewayStepProps) {
     return (
         <div className="space-y-6 p-8 text-center">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-accent/10">
@@ -201,6 +211,14 @@ export function GatewayStep({ isReady, autoStarted, message, isProcessing, onRet
                     重试启动
                 </Button>
             )}
+            {logs.length > 0 ? (
+                <div className="rounded-2xl bg-black/80 p-4 text-left text-xs text-emerald-200">
+                    <div className="mb-2 text-[11px] uppercase tracking-widest text-emerald-300">
+                        {jobStatus === "running" ? "启动日志" : "启动日志（已完成）"}
+                    </div>
+                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap">{logs.join("\n")}</pre>
+                </div>
+            ) : null}
             {message && (
                 <div className="rounded-2xl bg-line/30 px-4 py-2 text-xs text-muted">{message}</div>
             )}
@@ -377,10 +395,12 @@ export function PairingStep({
 interface ProbeStepProps {
     isProcessing: boolean;
     message: string | null;
+    logs: string[];
+    jobStatus: string;
     onRetry: () => void;
 }
 
-export function ProbeStep({ isProcessing, message, onRetry }: ProbeStepProps) {
+export function ProbeStep({ isProcessing, message, logs, jobStatus, onRetry }: ProbeStepProps) {
     return (
         <div className="space-y-6 p-8 text-center">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-accent/10">
@@ -400,6 +420,14 @@ export function ProbeStep({ isProcessing, message, onRetry }: ProbeStepProps) {
                 {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 重新探测
             </Button>
+            {logs.length > 0 ? (
+                <div className="rounded-2xl bg-black/80 p-4 text-left text-xs text-emerald-200">
+                    <div className="mb-2 text-[11px] uppercase tracking-widest text-emerald-300">
+                        {jobStatus === "running" ? "探测日志" : "探测日志（已完成）"}
+                    </div>
+                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap">{logs.join("\n")}</pre>
+                </div>
+            ) : null}
             {message && (
                 <div className="rounded-2xl bg-line/30 px-4 py-2 text-xs text-muted text-center">
                     {message}
