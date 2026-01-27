@@ -1,9 +1,10 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type WizardStep = "cli" | "gateway" | "token" | "pairing" | "probe" | "complete";
+export type WizardStep = "auth" | "cli" | "gateway" | "token" | "pairing" | "probe" | "complete";
 
 export const STEPS = [
+    { id: "auth" as const, label: "管理员登录", description: "保护控制台访问" },
     { id: "cli" as const, label: "安装 CLI", description: "准备运行环境" },
     { id: "gateway" as const, label: "启动网关", description: "自动启动本地服务" },
     { id: "token" as const, label: "配置 Token", description: "连接 Discord Bot" },

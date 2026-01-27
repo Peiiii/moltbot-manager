@@ -2,6 +2,7 @@
 
 - `docs/logs/v0.0.1-bootstrap/README.md`
 - `docs/logs/v0.0.2-cli-quickstart/README.md`
+- `docs/logs/v0.0.3-vps-install/README.md`
 
 ## 写日志的标准
 

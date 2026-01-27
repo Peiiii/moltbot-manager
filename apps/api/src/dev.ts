@@ -24,7 +24,8 @@ const apiProcess = spawnWithLabel("api", "pnpm", ["--filter", "clawdbot-manager-
   env: {
     ...process.env,
     MANAGER_API_PORT: String(apiPort),
-    ONBOARDING_API_PORT: String(apiPort)
+    ONBOARDING_API_PORT: String(apiPort),
+    MANAGER_AUTH_DISABLED: process.env.MANAGER_AUTH_DISABLED ?? "1"
   }
 });
 

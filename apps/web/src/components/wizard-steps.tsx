@@ -1,7 +1,86 @@
-import { ArrowRight, Check, ExternalLink, Loader2, MessageCircle, Search, Shield, Terminal } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, Loader2, Lock, MessageCircle, Search, Shield, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+
+// ============================================
+// Auth Step
+// ============================================
+
+interface AuthStepProps {
+    username: string;
+    password: string;
+    onUsernameChange: (value: string) => void;
+    onPasswordChange: (value: string) => void;
+    onSubmit: () => void;
+    isProcessing: boolean;
+    message: string | null;
+    configured: boolean;
+}
+
+export function AuthStep({
+    username,
+    password,
+    onUsernameChange,
+    onPasswordChange,
+    onSubmit,
+    isProcessing,
+    message,
+    configured
+}: AuthStepProps) {
+    return (
+        <div className="space-y-6 p-8">
+            <div className="text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10">
+                    <Lock className="h-8 w-8 text-accent" />
+                </div>
+                <h2 className="mt-4 text-2xl font-semibold">管理员登录</h2>
+                <p className="mt-2 text-sm text-muted">
+                    请输入安装时设置的管理员用户名与密码
+                </p>
+            </div>
+            {!configured ? (
+                <div className="rounded-2xl bg-warning/10 px-4 py-2 text-sm text-warning text-center">
+                    未检测到管理员配置，请先运行安装脚本完成初始化。
+                </div>
+            ) : null}
+            <div className="space-y-4">
+                <Input
+                    value={username}
+                    onChange={(e) => onUsernameChange(e.target.value)}
+                    placeholder="管理员用户名"
+                    autoFocus
+                />
+                <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => onPasswordChange(e.target.value)}
+                    placeholder="管理员密码"
+                />
+                <Button
+                    onClick={onSubmit}
+                    disabled={!username.trim() || !password || isProcessing || !configured}
+                    size="lg"
+                    className="w-full"
+                >
+                    {isProcessing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <>
+                            登录
+                            <ArrowRight className="h-4 w-4" />
+                        </>
+                    )}
+                </Button>
+            </div>
+            {message && (
+                <div className="rounded-2xl bg-line/30 px-4 py-2 text-xs text-muted text-center">
+                    {message}
+                </div>
+            )}
+        </div>
+    );
+}
 
 // ============================================
 // CLI Step

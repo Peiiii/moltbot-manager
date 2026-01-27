@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { WizardSidebar, MobileProgress, WizardStep } from "@/components/wizard-sidebar";
 import {
+  AuthStep,
   CliStep,
   GatewayStep,
   TokenStep,
@@ -18,15 +19,20 @@ export default function App() {
     error,
     loading,
     refresh,
+    checkAuth,
+    login,
     installCli,
     setDiscordToken,
     approveDiscordPairing,
     quickstart
   } = useOnboardingStore();
 
-  const [currentStep, setCurrentStep] = useState<WizardStep>("cli");
+  const [currentStep, setCurrentStep] = useState<WizardStep>("auth");
   const [tokenInput, setTokenInput] = useState("");
   const [pairingInput, setPairingInput] = useState("");
+  const [authUser, setAuthUser] = useState("");
+  const [authPass, setAuthPass] = useState("");
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [cliMessage, setCliMessage] = useState<string | null>(null);
   const [probeMessage, setProbeMessage] = useState<string | null>(null);
@@ -42,6 +48,9 @@ export default function App() {
   const probeOk = status?.onboarding?.probe?.ok === true;
   const pendingPairings = status?.onboarding?.discord.pendingPairings ?? 0;
   const cliChecking = !status && loading;
+  const authRequired = useOnboardingStore((state) => state.authRequired);
+  const authConfigured = useOnboardingStore((state) => state.authConfigured);
+  const authHeader = useOnboardingStore((state) => state.authHeader);
 
   // Polling
   useEffect(() => {
@@ -50,9 +59,13 @@ export default function App() {
     return () => clearInterval(timer);
   }, [refresh]);
 
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
   // Auto-start gateway on mount
   useEffect(() => {
-    if (autoStarted || !status || !cliInstalled) return;
+    if (autoStarted || !status || !cliInstalled || (authRequired && !authHeader)) return;
     if (gatewayOk) {
       setAutoStarted(true);
       return;
@@ -68,12 +81,14 @@ export default function App() {
       setAutoStarted(true);
     };
     void run();
-  }, [autoStarted, status, gatewayOk, quickstart]);
+  }, [autoStarted, status, gatewayOk, authRequired, authHeader, quickstart]);
 
   // Auto-advance steps based on current state
   useEffect(() => {
     if (!status) return;
-    if (!cliInstalled) {
+    if (authRequired && !authHeader) {
+      setCurrentStep("auth");
+    } else if (!cliInstalled) {
       setCurrentStep("cli");
     } else if (probeOk) {
       setCurrentStep("complete");
@@ -86,9 +101,24 @@ export default function App() {
     } else {
       setCurrentStep("gateway");
     }
-  }, [status, gatewayOk, tokenConfigured, allowFromConfigured, probeOk]);
+  }, [status, authRequired, authHeader, cliInstalled, gatewayOk, tokenConfigured, allowFromConfigured, probeOk]);
 
   // Handlers
+  const handleAuthSubmit = useCallback(async () => {
+    if (!authUser.trim() || !authPass.trim()) return;
+    setIsProcessing(true);
+    setAuthMessage(null);
+    const result = await login(authUser, authPass);
+    if (result.ok) {
+      setAuthMessage("登录成功，正在加载配置...");
+      setAuthPass("");
+      await refresh();
+    } else {
+      setAuthMessage(`登录失败: ${result.error}`);
+    }
+    setIsProcessing(false);
+  }, [authUser, authPass, login, refresh]);
+
   const handleCliInstall = useCallback(async () => {
     setIsProcessing(true);
     setCliMessage("正在安装 CLI...");
@@ -163,7 +193,9 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey && !isProcessing) {
-        if (currentStep === "cli" && !cliInstalled) {
+        if (currentStep === "auth" && authRequired && !authHeader) {
+          handleAuthSubmit();
+        } else if (currentStep === "cli" && !cliInstalled) {
           handleCliInstall();
         } else if (currentStep === "token" && tokenInput.trim()) {
           handleTokenSubmit();
@@ -178,10 +210,15 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     currentStep,
+    authRequired,
+    authHeader,
+    authUser,
+    authPass,
     cliInstalled,
     tokenInput,
     pairingInput,
     isProcessing,
+    handleAuthSubmit,
     handleCliInstall,
     handleTokenSubmit,
     handlePairingSubmit,
@@ -208,6 +245,19 @@ export default function App() {
 
           {/* Main wizard card */}
           <Card className="animate-fade-up overflow-hidden">
+            {currentStep === "auth" && (
+              <AuthStep
+                username={authUser}
+                password={authPass}
+                onUsernameChange={setAuthUser}
+                onPasswordChange={setAuthPass}
+                onSubmit={handleAuthSubmit}
+                isProcessing={isProcessing}
+                message={authMessage}
+                configured={authConfigured}
+              />
+            )}
+
             {currentStep === "cli" && (
               <CliStep
                 installed={cliInstalled}

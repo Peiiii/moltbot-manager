@@ -2,7 +2,9 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { spawn } from "node:child_process";
+import { scryptSync, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
@@ -12,6 +14,7 @@ const DEFAULT_GATEWAY_HOST = "127.0.0.1";
 const DEFAULT_GATEWAY_PORT = 18789;
 const DEFAULT_API_HOST = "127.0.0.1";
 const DEFAULT_API_PORT = 17321;
+const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".clawdbot-manager", "config.json");
 
 const app = new Hono();
 
@@ -33,15 +36,19 @@ app.use(
   cors({
     origin: (origin) => {
       if (!origin) return "*";
-      const allowed = new Set([
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5179",
-        "http://127.0.0.1:5179"
-      ]);
+      const allowed = new Set(
+        [
+          "http://localhost:5173",
+          "http://127.0.0.1:5173",
+          "http://localhost:5179",
+          "http://127.0.0.1:5179"
+        ].concat(parseOrigins(process.env.MANAGER_CORS_ORIGIN))
+      );
+      if (allowed.has("*")) return "*";
       if (allowed.has(origin)) return origin;
-      return "*";
-    }
+      return "null";
+    },
+    allowHeaders: ["Content-Type", "Authorization"]
   })
 );
 
@@ -76,8 +83,34 @@ type ManagedProcess = {
 };
 
 const repoRoot = resolveRepoRoot();
+const webDist = resolveWebDist(repoRoot);
 const commandRegistry = buildCommandRegistry(repoRoot);
 const processRegistry = new Map<string, ManagedProcess>();
+const authDisabled = process.env.MANAGER_AUTH_DISABLED === "1";
+const authAllowUnconfigured = process.env.MANAGER_AUTH_ALLOW_UNCONFIGURED === "1";
+
+app.use("/api/*", async (c, next) => {
+  const pathName = c.req.path;
+  if (pathName.startsWith("/api/auth/")) {
+    return next();
+  }
+  if (authDisabled) {
+    return next();
+  }
+
+  const authState = resolveAuthState();
+  if (!authState.configured) {
+    if (authAllowUnconfigured) return next();
+    return c.json({ ok: false, error: "auth not configured" }, 401, authHeaders());
+  }
+
+  const header = c.req.header("authorization");
+  if (!header || !verifyAuthHeader(header, authState)) {
+    return c.json({ ok: false, error: "unauthorized" }, 401, authHeaders());
+  }
+
+  return next();
+});
 
 app.get("/health", (c) => {
   return c.json({
@@ -140,6 +173,35 @@ app.post("/api/processes/stop", async (c) => {
 
   const result = stopProcess(id);
   return c.json(result.ok ? { ok: true, process: result.process } : result, result.ok ? 200 : 400);
+});
+
+app.get("/api/auth/status", (c) => {
+  const authState = resolveAuthState();
+  return c.json({
+    ok: true,
+    required: !authDisabled,
+    configured: authState.configured
+  });
+});
+
+app.post("/api/auth/login", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const username = typeof body?.username === "string" ? body.username.trim() : "";
+  const password = typeof body?.password === "string" ? body.password : "";
+  if (authDisabled) {
+    return c.json({ ok: true, disabled: true });
+  }
+  const authState = resolveAuthState();
+  if (!authState.configured) {
+    return c.json({ ok: false, error: "auth not configured" }, 400);
+  }
+  if (!username || !password) {
+    return c.json({ ok: false, error: "missing credentials" }, 400);
+  }
+  if (!authState.verify(username, password)) {
+    return c.json({ ok: false, error: "invalid credentials" }, 401);
+  }
+  return c.json({ ok: true });
 });
 
 app.post("/api/cli/install", async (c) => {
@@ -239,6 +301,16 @@ const port =
   parsePort(process.env.MANAGER_API_PORT ?? process.env.ONBOARDING_API_PORT) ??
   DEFAULT_API_PORT;
 
+if (webDist) {
+  app.get("*", async (c) => {
+    const reqPath = c.req.path;
+    if (reqPath.startsWith("/api") || reqPath === "/health") {
+      return c.notFound();
+    }
+    return serveStaticFile(c.req.path, webDist);
+  });
+}
+
 serve({
   fetch: app.fetch,
   hostname: host,
@@ -268,6 +340,174 @@ function resolveRepoRoot(): string {
   }
 
   return path.resolve(process.cwd(), "../..");
+}
+
+type AuthState = {
+  configured: boolean;
+  verify: (username: string, password: string) => boolean;
+};
+
+type ManagerConfig = {
+  auth?: {
+    username: string;
+    salt: string;
+    hash: string;
+  };
+  createdAt?: string;
+};
+
+function resolveAuthState(): AuthState {
+  if (authDisabled) {
+    return { configured: false, verify: () => true };
+  }
+
+  const envUser = process.env.MANAGER_AUTH_USERNAME?.trim() ?? "";
+  const envPass = process.env.MANAGER_AUTH_PASSWORD ?? "";
+  if (envUser && envPass) {
+    return {
+      configured: true,
+      verify: (username, password) => username === envUser && password === envPass
+    };
+  }
+
+  const config = loadManagerConfig();
+  const auth = config?.auth;
+  if (!auth?.username || !auth?.salt || !auth?.hash) {
+    return { configured: false, verify: () => false };
+  }
+
+  return {
+    configured: true,
+    verify: (username, password) => verifyPassword(username, password, auth)
+  };
+}
+
+function verifyPassword(
+  username: string,
+  password: string,
+  auth: { username: string; salt: string; hash: string }
+) {
+  if (username !== auth.username) return false;
+  const hashed = scryptSync(password, auth.salt, 64);
+  const expected = Buffer.from(auth.hash, "base64");
+  if (hashed.length !== expected.length) return false;
+  return timingSafeEqual(hashed, expected);
+}
+
+function verifyAuthHeader(header: string, authState: AuthState) {
+  const match = header.match(/^Basic\s+(.+)$/i);
+  if (!match) return false;
+  const decoded = Buffer.from(match[1], "base64").toString("utf-8");
+  const [username, ...rest] = decoded.split(":");
+  const password = rest.join(":");
+  if (!username || !password) return false;
+  return authState.verify(username, password);
+}
+
+function authHeaders() {
+  return { "WWW-Authenticate": 'Basic realm="Clawdbot Manager"' };
+}
+
+function loadManagerConfig(): ManagerConfig | null {
+  const configPath = resolveConfigPath();
+  try {
+    if (!fs.existsSync(configPath)) return null;
+    const raw = fs.readFileSync(configPath, "utf-8");
+    return JSON.parse(raw) as ManagerConfig;
+  } catch {
+    return null;
+  }
+}
+
+function resolveConfigPath() {
+  return process.env.MANAGER_CONFIG_PATH ?? DEFAULT_CONFIG_PATH;
+}
+
+function resolveWebDist(root: string) {
+  const candidate = process.env.MANAGER_WEB_DIST ?? path.join(root, "apps/web/dist");
+  const indexPath = path.join(candidate, "index.html");
+  if (fs.existsSync(indexPath)) return candidate;
+  return null;
+}
+
+function serveStaticFile(reqPath: string, webRoot: string) {
+  const relPath = reqPath === "/" ? "/index.html" : reqPath;
+  const safePath = safeJoin(webRoot, relPath);
+  if (!safePath) return new Response("Not Found", { status: 404 });
+
+  const fileContent = readFileOrNull(safePath);
+  if (fileContent) {
+    return new Response(toArrayBuffer(fileContent), {
+      headers: { "content-type": contentType(path.extname(safePath)) }
+    });
+  }
+
+  if (relPath !== "/index.html") {
+    const indexPath = path.join(webRoot, "index.html");
+    const indexContent = readFileOrNull(indexPath);
+    if (indexContent) {
+      return new Response(toArrayBuffer(indexContent), {
+        headers: { "content-type": "text/html; charset=utf-8" }
+      });
+    }
+  }
+
+  return new Response("Not Found", { status: 404 });
+}
+
+function readFileOrNull(filePath: string): Uint8Array | null {
+  try {
+    return fs.readFileSync(filePath) as Uint8Array;
+  } catch {
+    return null;
+  }
+}
+
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+}
+
+function safeJoin(root: string, reqPath: string) {
+  const normalized = path.normalize(reqPath).replace(/^(\.\.(\/|\\|$))+/, "");
+  const resolved = path.join(root, normalized);
+  if (!resolved.startsWith(root)) return null;
+  return resolved;
+}
+
+function contentType(ext: string) {
+  switch (ext) {
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".css":
+      return "text/css; charset=utf-8";
+    case ".js":
+      return "text/javascript; charset=utf-8";
+    case ".map":
+      return "application/json; charset=utf-8";
+    case ".svg":
+      return "image/svg+xml";
+    case ".png":
+      return "image/png";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".ico":
+      return "image/x-icon";
+    case ".woff":
+      return "font/woff";
+    case ".woff2":
+      return "font/woff2";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+function parseOrigins(value: string | undefined) {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function findRepoRoot(start: string): string | null {

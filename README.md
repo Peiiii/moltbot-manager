@@ -34,6 +34,23 @@ pnpm deploy:pages
 - `CLOUDFLARE_PAGES_BRANCH`（默认 `main`）
 - `VITE_MANAGER_API_URL`（指向可访问的 HTTPS API）
 
+## VPS 一键安装（脚本）
+
+```bash
+curl -fsSL https://clawdbot-manager.pages.dev/install.sh | MANAGER_REPO_URL=<git-repo-url> bash
+```
+
+可选环境变量：
+
+- `MANAGER_INSTALL_DIR`
+- `MANAGER_CONFIG_DIR`
+- `MANAGER_ADMIN_USER`
+- `MANAGER_ADMIN_PASS`
+- `MANAGER_API_HOST`（默认 `0.0.0.0`）
+- `MANAGER_API_PORT`（默认 `17321`）
+
+脚本来源：`apps/web/public/install.sh`（`scripts/install.sh` 为本地转发）
+
 ## 目录结构
 
 - `apps/web`：Web 前端（React + Vite）
