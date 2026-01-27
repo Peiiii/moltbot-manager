@@ -1,0 +1,95 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 36 40% 96%;
+  --surface: 0 0% 100%;
+  --ink: 226 24% 16%;
+  --muted: 217 12% 46%;
+  --accent: 17 90% 55%;
+  --accent-2: 197 80% 38%;
+  --line: 222 14% 85%;
+  --success: 148 48% 40%;
+  --warning: 35 92% 55%;
+  --danger: 0 80% 55%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Instrument Sans", "Helvetica Neue", sans-serif;
+  color: hsl(var(--ink));
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Space Grotesk", "Helvetica Neue", sans-serif;
+}
+
+.bg-hero-pattern {
+  background-image: radial-gradient(circle at top, hsla(var(--accent) / 0.08), transparent 55%),
+    radial-gradient(circle at 20% 20%, hsla(var(--accent-2) / 0.12), transparent 40%),
+    linear-gradient(135deg, hsla(var(--accent) / 0.08), hsla(var(--accent-2) / 0.12));
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s ease forwards;
+}
+
+.shadow-soft {
+  box-shadow: 0 12px 40px -28px rgba(15, 23, 42, 0.45);
+}
+
+@keyframes bounce-once {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+.animate-bounce-once {
+  animation: bounce-once 0.4s ease;
+}
+
+@keyframes pulse-subtle {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}

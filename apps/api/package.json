@@ -1,0 +1,21 @@
+{
+  "name": "clawdbot-manager-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "dev:all": "tsx src/dev.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "1.13.1",
+    "hono": "4.11.4"
+  },
+  "devDependencies": {
+    "@types/node": "25.0.10",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  }
+}

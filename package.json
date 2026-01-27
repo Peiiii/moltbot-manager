@@ -1,0 +1,18 @@
+{
+  "name": "clawdbot-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.23.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter clawdbot-manager-api dev:all",
+    "dev:web": "pnpm --filter clawdbot-manager-web dev",
+    "dev:api": "pnpm --filter clawdbot-manager-api dev",
+    "build": "pnpm -r --if-present build",
+    "lint": "pnpm -r --if-present lint",
+    "deploy:pages": "pnpm --filter clawdbot-manager-web deploy:pages"
+  }
+}
