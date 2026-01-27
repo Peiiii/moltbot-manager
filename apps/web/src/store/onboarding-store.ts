@@ -238,6 +238,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       startCliInstallJob: async () => {
         const { apiBase, authHeader } = get();
         set({ cliJobStatus: "running", cliLogs: [], cliJobError: null, cliJobId: null });
+        let finalError: string | null = null;
         try {
           const res = await fetch(`${apiBase}/api/jobs/cli-install`, {
             method: "POST",
@@ -267,9 +268,14 @@ export const useOnboardingStore = create<OnboardingState>()(
               set({ cliJobStatus: "success" });
             } else if (event.type === "error") {
               set({ cliJobStatus: "failed", cliJobError: event.error });
+              finalError = event.error;
             }
           });
           await get().refresh();
+          const resolvedStatus = get().cliJobStatus;
+          if (resolvedStatus === "failed") {
+            return { ok: false, error: finalError ?? "Job failed" };
+          }
           return { ok: true };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

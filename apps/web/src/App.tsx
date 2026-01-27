@@ -53,7 +53,6 @@ export default function App() {
   const authHeader = useOnboardingStore((state) => state.authHeader);
   const cliLogs = useOnboardingStore((state) => state.cliLogs);
   const cliJobStatus = useOnboardingStore((state) => state.cliJobStatus);
-  const cliJobError = useOnboardingStore((state) => state.cliJobError);
 
   // Polling
   useEffect(() => {
@@ -128,13 +127,11 @@ export default function App() {
     const result = await startCliInstallJob();
     if (!result.ok) {
       setCliMessage(`安装失败: ${result.error}`);
-    } else if (cliJobError) {
-      setCliMessage(`安装失败: ${cliJobError}`);
     } else {
       setCliMessage("安装完成，正在刷新状态...");
     }
     setIsProcessing(false);
-  }, [startCliInstallJob, cliJobError]);
+  }, [startCliInstallJob]);
 
   const handleTokenSubmit = useCallback(async () => {
     if (!tokenInput.trim()) return;
