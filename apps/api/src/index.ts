@@ -211,7 +211,17 @@ app.post("/api/cli/install", async (c) => {
   }
 
   try {
-    await runCommand("npm", ["i", "-g", "clawdbot@latest"], 120_000);
+    const timeoutMs = parsePositiveInt(process.env.MANAGER_CLI_INSTALL_TIMEOUT_MS) ?? 600_000;
+    await runCommand(
+      "npm",
+      ["i", "-g", "clawdbot@latest"],
+      timeoutMs,
+      {
+        ...process.env,
+        NPM_CONFIG_AUDIT: "false",
+        NPM_CONFIG_FUND: "false"
+      }
+    );
     const updated = await getCliStatus();
     return c.json({ ok: true, version: updated.version });
   } catch (err) {
@@ -639,12 +649,17 @@ function findOnPath(binary: string): string | null {
   return null;
 }
 
-async function runCommand(cmd: string, args: string[], timeoutMs: number): Promise<string> {
+async function runCommand(
+  cmd: string,
+  args: string[],
+  timeoutMs: number,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
       cwd: repoRoot,
       stdio: ["ignore", "pipe", "pipe"],
-      env: process.env
+      env
     });
 
     let output = "";
@@ -674,6 +689,14 @@ async function runCommand(cmd: string, args: string[], timeoutMs: number): Promi
       else reject(new Error(error || output));
     });
   });
+}
+
+function parsePositiveInt(value: string | undefined) {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  if (parsed <= 0) return null;
+  return Math.floor(parsed);
 }
 
 async function readConfigValue(pathKey: string): Promise<unknown | null> {
