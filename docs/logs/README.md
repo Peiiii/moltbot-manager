@@ -18,6 +18,7 @@
 - `docs/logs/v0.0.16-cli-toml-config/README.md`
 - `docs/logs/v0.0.17-cli-user-doc/README.md`
 - `docs/logs/v0.0.18-cli-gateway-stop/README.md`
+- `docs/logs/v0.0.19-frontend-install-guide/README.md`
 
 ## 写日志的标准
 
