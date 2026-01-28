@@ -9,6 +9,7 @@
 - `docs/logs/v0.0.7-process-spawn-guard/README.md`
 - `docs/logs/v0.0.8-docker-deploy/README.md`
 - `docs/logs/v0.0.9-docker-script/README.md`
+- `docs/logs/v0.0.10-local-docker-script/README.md`
 
 ## 写日志的标准
 

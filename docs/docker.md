@@ -8,6 +8,11 @@
 curl -fsSL https://clawdbot-manager.pages.dev/docker.sh | bash
 ```
 
+如果你已经 clone 了仓库，可以直接运行本地脚本：
+```bash
+bash scripts/docker.sh
+```
+
 自定义管理员账号/密码/端口（示例）：
 ```bash
 MANAGER_ADMIN_USER=admin \
