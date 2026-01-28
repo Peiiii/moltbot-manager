@@ -1,7 +1,8 @@
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT } from "../lib/constants.js";
 import { checkGateway, waitForGateway } from "../lib/gateway.js";
+import { runCommandWithLogs } from "../lib/runner.js";
 import { getCliStatus } from "../lib/system.js";
-import { parsePort } from "../lib/utils.js";
+import { parsePort, parsePositiveInt, sleep } from "../lib/utils.js";
 import { setLastProbe } from "../lib/onboarding.js";
 import type { ApiDeps } from "../deps.js";
 
@@ -32,6 +33,7 @@ export async function runQuickstart(
 
   let gatewayReady = false;
   let probeOk: boolean | undefined;
+  const gatewayTimeoutMs = parsePositiveInt(process.env.MANAGER_GATEWAY_TIMEOUT_MS) ?? 20_000;
 
   log?.("检查 CLI 环境...");
   const cli = await getCliStatus(deps.runCommand);
@@ -44,14 +46,62 @@ export async function runQuickstart(
   }
 
   if (startGateway) {
+    log?.("初始化网关配置...");
+    await runCommandWithLogs("clawdbot", ["config", "set", "gateway.mode", "local"], {
+      cwd: deps.repoRoot,
+      env: process.env,
+      timeoutMs: 8000,
+      onLog: (line) => log?.(`[config] ${line}`)
+    });
+
+    const gatewayArgs = [
+      "gateway",
+      "run",
+      "--allow-unconfigured",
+      "--bind",
+      "loopback",
+      "--port",
+      String(gatewayPort),
+      "--force"
+    ];
+
     log?.("启动网关中...");
-    const started = deps.processManager.startProcess("gateway-run");
+    const started = deps.processManager.startProcess("gateway-run", {
+      args: gatewayArgs,
+      onLog: (line) => log?.(`[gateway] ${line}`)
+    });
     if (!started.ok) {
       return { ok: false, error: started.error ?? "unknown", status: 500 };
     }
-    gatewayReady = await waitForGateway(gatewayHost, gatewayPort, 12_000);
+    await sleep(500);
+    const earlySnapshot = deps.processManager
+      .listProcesses()
+      .find((process) => process.id === "gateway-run");
+    if (earlySnapshot && !earlySnapshot.running) {
+      if (earlySnapshot.lastLines.length) {
+        log?.("网关进程已退出，输出如下：");
+        for (const line of earlySnapshot.lastLines) {
+          log?.(`[gateway] ${line}`);
+        }
+      }
+      return { ok: false, error: "gateway process exited", status: 500 };
+    }
+
+    gatewayReady = await waitForGateway(gatewayHost, gatewayPort, gatewayTimeoutMs);
     if (!gatewayReady) {
       log?.("网关启动超时。");
+      const snapshot = deps.processManager
+        .listProcesses()
+        .find((process) => process.id === "gateway-run");
+      if (snapshot?.lastLines?.length) {
+        log?.("网关进程输出（最近日志）：");
+        for (const line of snapshot.lastLines) {
+          log?.(`[gateway] ${line}`);
+        }
+      }
+      if (snapshot && snapshot.exitCode !== null) {
+        log?.(`网关进程已退出，exit code: ${snapshot.exitCode}`);
+      }
       return { ok: false, error: "gateway not ready", status: 504 };
     }
     log?.("网关已就绪。");

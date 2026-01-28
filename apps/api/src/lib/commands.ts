@@ -22,8 +22,15 @@ export type ProcessSnapshot = {
   lastLines: string[];
 };
 
+export type StartProcessOptions = {
+  args?: string[];
+  env?: NodeJS.ProcessEnv;
+  onLog?: (line: string) => void;
+};
+
 type ManagedProcess = {
   def: CommandDefinition;
+  args: string[];
   child: ReturnType<typeof spawn> | null;
   logs: string[];
   startedAt: Date | null;
@@ -72,7 +79,7 @@ export function createProcessManager(commandRegistry: CommandDefinition[]) {
     });
   };
 
-  const startProcess = (id: string) => {
+  const startProcess = (id: string, options?: StartProcessOptions) => {
     const def = commandRegistry.find((cmd) => cmd.id === id);
     if (!def) return { ok: false, error: "unknown id" } as const;
     if (!def.allowRun) return { ok: false, error: "not allowed" } as const;
@@ -82,13 +89,15 @@ export function createProcessManager(commandRegistry: CommandDefinition[]) {
       return { ok: true, process: snapshotProcess(def, existing) } as const;
     }
 
-    const child = spawn(def.command, def.args, {
+    const args = options?.args ?? def.args;
+    const child = spawn(def.command, args, {
       cwd: def.cwd,
-      env: process.env
+      env: options?.env ?? process.env
     });
 
     const managed: ManagedProcess = {
       def,
+      args,
       child,
       logs: [],
       startedAt: new Date(),
@@ -100,7 +109,11 @@ export function createProcessManager(commandRegistry: CommandDefinition[]) {
     const pushLog = (chunk: string) => {
       const lines = chunk.split(/\r?\n/).filter(Boolean);
       if (!lines.length) return;
-      managed.logs.push(...lines.map((line) => line.slice(0, 1000)));
+      const clipped = lines.map((line) => line.slice(0, 1000));
+      managed.logs.push(...clipped);
+      for (const line of clipped) {
+        options?.onLog?.(line);
+      }
       if (managed.logs.length > 200) {
         managed.logs.splice(0, managed.logs.length - 200);
       }
@@ -144,7 +157,7 @@ function snapshotProcess(def: CommandDefinition, managed: ManagedProcess | null)
   return {
     id: def.id,
     title: def.title,
-    command: formatCommand(def),
+    command: formatCommand(def, managed?.args),
     cwd: def.cwd,
     running,
     pid: managed?.child?.pid ?? null,
@@ -154,6 +167,6 @@ function snapshotProcess(def: CommandDefinition, managed: ManagedProcess | null)
   };
 }
 
-function formatCommand(cmd: CommandDefinition) {
-  return [cmd.command, ...cmd.args].join(" ");
+function formatCommand(cmd: CommandDefinition, argsOverride?: string[]) {
+  return [cmd.command, ...(argsOverride ?? cmd.args)].join(" ");
 }

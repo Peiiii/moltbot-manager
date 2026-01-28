@@ -14,7 +14,8 @@
 - Discord 配对、资源下载接入 Job + SSE
 - 前端 CLI/网关/探测/配对/资源下载统一日志组件
 - 拆分前端 store，避免单体 store 过大
-- 网关启动超时会明确失败并提示重试
+- 网关启动会自动写入必要配置（gateway.mode=local）
+- 网关失败会透出进程日志到 UI
 - SSE 通用接口：`/api/jobs/*` + `/api/jobs/:id/stream`
 
 ## 验证方式

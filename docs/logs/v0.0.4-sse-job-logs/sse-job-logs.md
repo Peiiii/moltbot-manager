@@ -76,3 +76,4 @@ curl -N http://127.0.0.1:17321/api/jobs/<jobId>/stream -u admin:pass
 
 - CLI 安装步骤会自动创建 Job 并展示日志
 - 网关启动 / 通道探测 / 配对 / 资源下载复用相同 Job + SSE
+- 首次运行会写入 gateway.mode=local 配置，并将日志透出到 UI

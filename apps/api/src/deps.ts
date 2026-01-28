@@ -1,10 +1,14 @@
-import type { CommandDefinition, ProcessSnapshot } from "./lib/commands.js";
+import type { CommandDefinition, ProcessSnapshot, StartProcessOptions } from "./lib/commands.js";
 import type { CommandRunner } from "./lib/runner.js";
 import type { JobEvent, JobRecord } from "./lib/jobs.js";
 
 export type ProcessManager = {
   listProcesses: () => ProcessSnapshot[];
-  startProcess: (id: string) => { ok: boolean; error?: string; process?: ProcessSnapshot };
+  startProcess: (id: string, options?: StartProcessOptions) => {
+    ok: boolean;
+    error?: string;
+    process?: ProcessSnapshot;
+  };
   stopProcess: (id: string) => { ok: boolean; error?: string; process?: ProcessSnapshot };
 };
 
