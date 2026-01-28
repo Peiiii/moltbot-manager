@@ -11,6 +11,7 @@
 - `docs/logs/v0.0.9-docker-script/README.md`
 - `docs/logs/v0.0.10-local-docker-script/README.md`
 - `docs/logs/v0.0.11-docker-script-fix/README.md`
+- `docs/logs/v0.0.12-cli-steps/README.md`
 
 ## 写日志的标准
 

@@ -44,6 +44,10 @@ curl -fsSL https://clawdbot-manager.pages.dev/install.sh | bash
 
 完整指引：`docs/docker.md`
 
+## CLI 快速验证
+
+命令清单：`docs/cli.md`
+
 ## Windows 一键安装（PowerShell）
 
 ```powershell
