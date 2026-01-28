@@ -37,13 +37,12 @@ pnpm deploy:pages
 ## VPS 一键安装（脚本）
 
 ```bash
-curl -fsSL https://clawdbot-manager.pages.dev/install.sh | MANAGER_REPO_URL=<git-repo-url> bash
+curl -fsSL https://clawdbot-manager.pages.dev/install.sh | bash
 ```
 
 ## Windows 一键安装（PowerShell）
 
 ```powershell
-$env:MANAGER_REPO_URL="git@github.com:your-org/clawdbot-manager.git"
 $env:MANAGER_ADMIN_USER="admin"
 $env:MANAGER_ADMIN_PASS="pass"
 irm https://clawdbot-manager.pages.dev/install.ps1 | iex
@@ -51,6 +50,7 @@ irm https://clawdbot-manager.pages.dev/install.ps1 | iex
 
 可选环境变量：
 
+- `MANAGER_REPO_URL`（默认 `https://github.com/Peiiii/moltbot-manager.git`）
 - `MANAGER_INSTALL_DIR`
 - `MANAGER_CONFIG_DIR`
 - `MANAGER_ADMIN_USER`

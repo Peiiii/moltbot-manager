@@ -1,13 +1,13 @@
 $ErrorActionPreference = "Stop"
 
+$defaultRepoUrl = "https://github.com/Peiiii/moltbot-manager.git"
 $repoUrl = $env:MANAGER_REPO_URL
 $apiPort = if ($env:MANAGER_API_PORT) { $env:MANAGER_API_PORT } else { "17321" }
 $apiHost = if ($env:MANAGER_API_HOST) { $env:MANAGER_API_HOST } else { "0.0.0.0" }
 
 if (-not $repoUrl) {
-  Write-Error "[manager] MANAGER_REPO_URL is required."
-  Write-Error "Example: `$env:MANAGER_REPO_URL = 'git@github.com:your-org/clawdbot-manager.git'"
-  exit 1
+  $repoUrl = $defaultRepoUrl
+  Write-Host "[manager] MANAGER_REPO_URL not set. Using default: $repoUrl"
 }
 
 function Require-Command {

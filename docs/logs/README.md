@@ -5,6 +5,7 @@
 - `docs/logs/v0.0.3-vps-install/README.md`
 - `docs/logs/v0.0.4-sse-job-logs/README.md`
 - `docs/logs/v0.0.5-cross-platform-install/README.md`
+- `docs/logs/v0.0.6-default-repo/README.md`
 
 ## 写日志的标准
 

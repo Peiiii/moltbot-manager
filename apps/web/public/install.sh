@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${MANAGER_REPO_URL:-}"
+DEFAULT_REPO_URL="https://github.com/Peiiii/moltbot-manager.git"
+REPO_URL="${MANAGER_REPO_URL:-$DEFAULT_REPO_URL}"
 MANAGER_API_PORT="${MANAGER_API_PORT:-17321}"
 MANAGER_API_HOST="${MANAGER_API_HOST:-0.0.0.0}"
 
-if [[ -z "$REPO_URL" ]]; then
-  echo "[manager] MANAGER_REPO_URL is required."
-  echo "Example: MANAGER_REPO_URL=git@github.com:your-org/clawdbot-manager.git"
-  exit 1
+if [[ -z "${MANAGER_REPO_URL:-}" ]]; then
+  echo "[manager] MANAGER_REPO_URL not set. Using default: $REPO_URL"
 fi
 
 if ! command -v git >/dev/null 2>&1; then
