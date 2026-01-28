@@ -3,6 +3,7 @@ import { getCliStatus } from "../lib/system.js";
 import { runCommandWithLogs } from "../lib/runner.js";
 import { parsePositiveInt } from "../lib/utils.js";
 import { runQuickstart, type QuickstartRequest } from "./quickstart.service.js";
+import { downloadResource, type DownloadOptions } from "./resource.service.js";
 
 export function createCliInstallJob(deps: ApiDeps) {
   const job = deps.jobStore.createJob("Install Clawdbot CLI");
@@ -65,6 +66,65 @@ export function createQuickstartJob(deps: ApiDeps, body: QuickstartRequest) {
     .catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
       deps.jobStore.appendLog(job.id, `快速启动失败: ${message}`);
+      deps.jobStore.failJob(job.id, message);
+    });
+
+  return job.id;
+}
+
+export function createDiscordPairingJob(deps: ApiDeps, code: string) {
+  const job = deps.jobStore.createJob("Discord Pairing");
+  deps.jobStore.startJob(job.id);
+  deps.jobStore.appendLog(job.id, "开始处理配对请求...");
+
+  void runCommandWithLogs("clawdbot", ["pairing", "approve", "discord", code], {
+    cwd: deps.repoRoot,
+    env: process.env,
+    timeoutMs: 8000,
+    onLog: (line) => deps.jobStore.appendLog(job.id, line)
+  })
+    .then(() => {
+      deps.jobStore.appendLog(job.id, "配对已提交。");
+      deps.jobStore.completeJob(job.id, { code });
+    })
+    .catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      deps.jobStore.appendLog(job.id, `配对失败: ${message}`);
+      deps.jobStore.failJob(job.id, message);
+    });
+
+  return job.id;
+}
+
+export function createResourceDownloadJob(
+  deps: ApiDeps,
+  options: { url?: string; filename?: string }
+) {
+  const job = deps.jobStore.createJob("Download Resources");
+  deps.jobStore.startJob(job.id);
+
+  const envUrl = process.env.MANAGER_RESOURCE_URL;
+  const url = options.url?.trim() || envUrl?.trim() || "";
+  const dir = process.env.MANAGER_RESOURCE_DIR;
+  const payload: DownloadOptions = {
+    url,
+    filename: options.filename,
+    dir: dir?.trim() || undefined
+  };
+
+  if (!payload.url) {
+    deps.jobStore.appendLog(job.id, "未配置资源地址。");
+    deps.jobStore.failJob(job.id, "resource url missing");
+    return job.id;
+  }
+
+  void downloadResource(payload, (line) => deps.jobStore.appendLog(job.id, line))
+    .then((result) => {
+      deps.jobStore.completeJob(job.id, result);
+    })
+    .catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      deps.jobStore.appendLog(job.id, `下载失败: ${message}`);
       deps.jobStore.failJob(job.id, message);
     });
 

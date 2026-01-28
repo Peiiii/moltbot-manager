@@ -1,7 +1,12 @@
 import type { Handler } from "hono";
 
 import type { ApiDeps } from "../deps.js";
-import { createCliInstallJob, createQuickstartJob } from "../services/jobs.service.js";
+import {
+  createCliInstallJob,
+  createDiscordPairingJob,
+  createQuickstartJob,
+  createResourceDownloadJob
+} from "../services/jobs.service.js";
 import type { JobEvent } from "../lib/jobs.js";
 import type { QuickstartRequest } from "../services/quickstart.service.js";
 
@@ -19,6 +24,26 @@ export function createQuickstartJobHandler(deps: ApiDeps): Handler {
   return async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as QuickstartRequest;
     const jobId = createQuickstartJob(deps, body);
+    return c.json({ ok: true, jobId });
+  };
+}
+
+export function createDiscordPairingJobHandler(deps: ApiDeps): Handler {
+  return async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const code = typeof body?.code === "string" ? body.code.trim().toUpperCase() : "";
+    if (!code) return c.json({ ok: false, error: "missing code" }, 400);
+    const jobId = createDiscordPairingJob(deps, code);
+    return c.json({ ok: true, jobId });
+  };
+}
+
+export function createResourceDownloadJobHandler(deps: ApiDeps): Handler {
+  return async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const url = typeof body?.url === "string" ? body.url.trim() : undefined;
+    const filename = typeof body?.filename === "string" ? body.filename.trim() : undefined;
+    const jobId = createResourceDownloadJob(deps, { url, filename });
     return c.json({ ok: true, jobId });
   };
 }

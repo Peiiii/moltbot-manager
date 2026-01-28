@@ -1,7 +1,10 @@
 import { ArrowRight, Check, ExternalLink, Loader2, Lock, MessageCircle, Search, Shield, Terminal } from "lucide-react";
+
+import { JobLogPanel } from "@/components/job-log-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import type { JobStatus } from "@/store/jobs-store";
 
 // ============================================
 // Auth Step
@@ -93,7 +96,8 @@ interface CliStepProps {
     isProcessing: boolean;
     message: string | null;
     logs: string[];
-    jobStatus: string;
+    jobStatus: JobStatus;
+    jobError: string | null;
     onInstall: () => void;
 }
 
@@ -105,6 +109,7 @@ export function CliStep({
     message,
     logs,
     jobStatus,
+    jobError,
     onInstall
 }: CliStepProps) {
     const statusText = installed
@@ -148,12 +153,10 @@ export function CliStep({
                 <code className="break-words">npm i -g clawdbot@latest</code>
                 <div className="mt-2 text-[11px]">如提示权限不足，可改用 sudo 执行。</div>
             </div>
-            {logs.length > 0 ? (
-                <div className="rounded-2xl bg-black/80 p-4 text-left text-xs text-emerald-200">
-                    <div className="mb-2 text-[11px] uppercase tracking-widest text-emerald-300">
-                        {jobStatus === "running" ? "安装日志" : "安装日志（已完成）"}
-                    </div>
-                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap">{logs.join("\n")}</pre>
+            <JobLogPanel title="安装日志" logs={logs} status={jobStatus} />
+            {jobStatus === "failed" ? (
+                <div className="rounded-2xl bg-warning/10 px-4 py-2 text-xs text-warning text-center">
+                    安装失败：{jobError ?? "未知错误"}
                 </div>
             ) : null}
             {message && (
@@ -175,7 +178,8 @@ interface GatewayStepProps {
     message: string | null;
     isProcessing: boolean;
     logs: string[];
-    jobStatus: string;
+    jobStatus: JobStatus;
+    jobError: string | null;
     onRetry: () => void;
 }
 
@@ -186,8 +190,20 @@ export function GatewayStep({
     isProcessing,
     logs,
     jobStatus,
+    jobError,
     onRetry
 }: GatewayStepProps) {
+    const title = isReady
+        ? "网关已就绪"
+        : jobStatus === "failed"
+            ? "网关启动失败"
+            : "正在启动网关...";
+    const subtitle = isReady
+        ? "正在自动进入下一步..."
+        : jobStatus === "failed"
+            ? "请查看日志并重试。"
+            : "请稍候，网关正在后台启动中";
+
     return (
         <div className="space-y-6 p-8 text-center">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-accent/10">
@@ -198,12 +214,8 @@ export function GatewayStep({
                 )}
             </div>
             <div>
-                <h2 className="text-2xl font-semibold">
-                    {isReady ? "网关已就绪" : "正在启动网关..."}
-                </h2>
-                <p className="mt-2 text-sm text-muted">
-                    {isReady ? "正在自动进入下一步..." : "请稍候，网关正在后台启动中"}
-                </p>
+                <h2 className="text-2xl font-semibold">{title}</h2>
+                <p className="mt-2 text-sm text-muted">{subtitle}</p>
             </div>
             {!isReady && autoStarted && (
                 <Button onClick={onRetry} disabled={isProcessing} variant="outline">
@@ -211,12 +223,10 @@ export function GatewayStep({
                     重试启动
                 </Button>
             )}
-            {logs.length > 0 ? (
-                <div className="rounded-2xl bg-black/80 p-4 text-left text-xs text-emerald-200">
-                    <div className="mb-2 text-[11px] uppercase tracking-widest text-emerald-300">
-                        {jobStatus === "running" ? "启动日志" : "启动日志（已完成）"}
-                    </div>
-                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap">{logs.join("\n")}</pre>
+            <JobLogPanel title="启动日志" logs={logs} status={jobStatus} />
+            {jobStatus === "failed" ? (
+                <div className="rounded-2xl bg-warning/10 px-4 py-2 text-xs text-warning">
+                    启动失败：{jobError ?? "未知错误"}
                 </div>
             ) : null}
             {message && (
@@ -305,6 +315,9 @@ interface PairingStepProps {
     isProcessing: boolean;
     message: string | null;
     pendingPairings: number;
+    logs: string[];
+    jobStatus: JobStatus;
+    jobError: string | null;
 }
 
 export function PairingStep({
@@ -313,7 +326,10 @@ export function PairingStep({
     onSubmit,
     isProcessing,
     message,
-    pendingPairings
+    pendingPairings,
+    logs,
+    jobStatus,
+    jobError
 }: PairingStepProps) {
     return (
         <div className="space-y-6 p-8">
@@ -379,6 +395,12 @@ export function PairingStep({
                 </Button>
             </div>
             <div className="text-center text-xs text-muted">按 Enter 继续</div>
+            <JobLogPanel title="配对日志" logs={logs} status={jobStatus} />
+            {jobStatus === "failed" ? (
+                <div className="rounded-2xl bg-warning/10 px-4 py-2 text-xs text-warning text-center">
+                    配对失败：{jobError ?? "未知错误"}
+                </div>
+            ) : null}
             {message && (
                 <div className="rounded-2xl bg-line/30 px-4 py-2 text-xs text-muted text-center">
                     {message}
@@ -396,11 +418,12 @@ interface ProbeStepProps {
     isProcessing: boolean;
     message: string | null;
     logs: string[];
-    jobStatus: string;
+    jobStatus: JobStatus;
+    jobError: string | null;
     onRetry: () => void;
 }
 
-export function ProbeStep({ isProcessing, message, logs, jobStatus, onRetry }: ProbeStepProps) {
+export function ProbeStep({ isProcessing, message, logs, jobStatus, jobError, onRetry }: ProbeStepProps) {
     return (
         <div className="space-y-6 p-8 text-center">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-accent/10">
@@ -420,12 +443,10 @@ export function ProbeStep({ isProcessing, message, logs, jobStatus, onRetry }: P
                 {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 重新探测
             </Button>
-            {logs.length > 0 ? (
-                <div className="rounded-2xl bg-black/80 p-4 text-left text-xs text-emerald-200">
-                    <div className="mb-2 text-[11px] uppercase tracking-widest text-emerald-300">
-                        {jobStatus === "running" ? "探测日志" : "探测日志（已完成）"}
-                    </div>
-                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap">{logs.join("\n")}</pre>
+            <JobLogPanel title="探测日志" logs={logs} status={jobStatus} />
+            {jobStatus === "failed" ? (
+                <div className="rounded-2xl bg-warning/10 px-4 py-2 text-xs text-warning text-center">
+                    探测失败：{jobError ?? "未知错误"}
                 </div>
             ) : null}
             {message && (
@@ -443,9 +464,21 @@ export function ProbeStep({ isProcessing, message, logs, jobStatus, onRetry }: P
 
 interface CompleteStepProps {
     probeOk: boolean;
+    onDownloadResource: () => Promise<{ ok: boolean; error?: string }>;
+    resourceLogs: string[];
+    resourceJobStatus: JobStatus;
+    resourceMessage: string | null;
+    resourceError: string | null;
 }
 
-export function CompleteStep({ probeOk }: CompleteStepProps) {
+export function CompleteStep({
+    probeOk,
+    onDownloadResource,
+    resourceLogs,
+    resourceJobStatus,
+    resourceMessage,
+    resourceError
+}: CompleteStepProps) {
     return (
         <div className="space-y-6 p-8 text-center">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-success/10">
@@ -479,6 +512,35 @@ export function CompleteStep({ probeOk }: CompleteStepProps) {
                     <ArrowRight className="h-4 w-4" />
                 </Button>
                 <p className="text-xs text-muted">现在可以在 Discord 中与 Bot 对话了</p>
+            </div>
+
+            <div className="space-y-3 rounded-2xl bg-line/20 p-4 text-left">
+                <div className="text-sm font-semibold text-ink">可选：下载资源包</div>
+                <p className="text-xs text-muted">
+                    若你有额外资源（模型/素材/配置），可在此一键下载到本机。
+                </p>
+                <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={onDownloadResource}
+                    disabled={resourceJobStatus === "running"}
+                >
+                    {resourceJobStatus === "running" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    下载资源
+                </Button>
+                <JobLogPanel title="资源下载日志" logs={resourceLogs} status={resourceJobStatus} />
+                {resourceJobStatus === "failed" ? (
+                    <div className="rounded-2xl bg-warning/10 px-4 py-2 text-xs text-warning">
+                        下载失败：{resourceError ?? "未知错误"}
+                    </div>
+                ) : null}
+                {resourceMessage && (
+                    <div className="rounded-2xl bg-line/30 px-4 py-2 text-xs text-muted">
+                        {resourceMessage}
+                    </div>
+                )}
             </div>
         </div>
     );

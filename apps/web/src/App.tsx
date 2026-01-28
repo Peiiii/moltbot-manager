@@ -11,21 +11,23 @@ import {
   ProbeStep,
   CompleteStep
 } from "@/components/wizard-steps";
-import { useOnboardingStore } from "@/store/onboarding-store";
+import { useConfigStore } from "@/store/config-store";
+import { useJobsStore } from "@/store/jobs-store";
+import { useStatusStore } from "@/store/status-store";
 
 export default function App() {
+  const { status, error, loading, refresh, setDiscordToken } = useStatusStore();
+  const { checkAuth, login, authRequired, authConfigured, authHeader } = useConfigStore();
   const {
-    status,
-    error,
-    loading,
-    refresh,
-    checkAuth,
-    login,
+    cli,
+    quickstart,
+    pairing,
+    resource,
     startCliInstallJob,
-    setDiscordToken,
-    approveDiscordPairing,
-    startQuickstartJob
-  } = useOnboardingStore();
+    startQuickstartJob,
+    startPairingJob,
+    startResourceDownloadJob
+  } = useJobsStore();
 
   const [currentStep, setCurrentStep] = useState<WizardStep>("auth");
   const [tokenInput, setTokenInput] = useState("");
@@ -36,6 +38,7 @@ export default function App() {
   const [message, setMessage] = useState<string | null>(null);
   const [cliMessage, setCliMessage] = useState<string | null>(null);
   const [probeMessage, setProbeMessage] = useState<string | null>(null);
+  const [resourceMessage, setResourceMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [autoStarted, setAutoStarted] = useState(false);
 
@@ -48,20 +51,31 @@ export default function App() {
   const probeOk = status?.onboarding?.probe?.ok === true;
   const pendingPairings = status?.onboarding?.discord.pendingPairings ?? 0;
   const cliChecking = !status && loading;
-  const authRequired = useOnboardingStore((state) => state.authRequired);
-  const authConfigured = useOnboardingStore((state) => state.authConfigured);
-  const authHeader = useOnboardingStore((state) => state.authHeader);
-  const cliLogs = useOnboardingStore((state) => state.cliLogs);
-  const cliJobStatus = useOnboardingStore((state) => state.cliJobStatus);
-  const quickstartLogs = useOnboardingStore((state) => state.quickstartLogs);
-  const quickstartJobStatus = useOnboardingStore((state) => state.quickstartJobStatus);
+  const cliLogs = cli.logs;
+  const cliJobStatus = cli.status;
+  const cliJobError = cli.error;
+  const quickstartLogs = quickstart.logs;
+  const quickstartJobStatus = quickstart.status;
+  const quickstartJobError = quickstart.error;
+  const pairingLogs = pairing.logs;
+  const pairingJobStatus = pairing.status;
+  const pairingJobError = pairing.error;
+  const resourceLogs = resource.logs;
+  const resourceJobStatus = resource.status;
+  const resourceJobError = resource.error;
+  const jobsRunning =
+    cliJobStatus === "running" ||
+    quickstartJobStatus === "running" ||
+    pairingJobStatus === "running" ||
+    resourceJobStatus === "running";
 
   // Polling
   useEffect(() => {
     refresh();
+    if (jobsRunning) return;
     const timer = setInterval(refresh, 5000);
     return () => clearInterval(timer);
-  }, [refresh]);
+  }, [refresh, jobsRunning]);
 
   useEffect(() => {
     checkAuth();
@@ -87,6 +101,8 @@ export default function App() {
       const result = await startQuickstartJob({ startGateway: true, runProbe: false });
       if (!result.ok) {
         setMessage(`启动失败: ${result.error}`);
+      } else if (result.result?.gatewayReady) {
+        setMessage("网关已就绪。");
       } else {
         setMessage("网关正在启动中...");
       }
@@ -170,7 +186,7 @@ export default function App() {
     setIsProcessing(true);
     setMessage(null);
     setProbeMessage(null);
-    const result = await approveDiscordPairing(pairingInput);
+    const result = await startPairingJob(pairingInput);
     if (result.ok) {
       setPairingInput("");
       setMessage("配对成功！正在验证通道...");
@@ -186,12 +202,19 @@ export default function App() {
       setMessage(`配对失败: ${result.error}`);
     }
     setIsProcessing(false);
-  }, [pairingInput, approveDiscordPairing, startQuickstartJob]);
+  }, [pairingInput, startPairingJob, startQuickstartJob]);
 
   const handleRetry = useCallback(async () => {
     setIsProcessing(true);
     setMessage("正在重启网关...");
-    await startQuickstartJob({ startGateway: true, runProbe: false });
+    const result = await startQuickstartJob({ startGateway: true, runProbe: false });
+    if (!result.ok) {
+      setMessage(`启动失败: ${result.error}`);
+    } else if (result.result?.gatewayReady) {
+      setMessage("网关已就绪。");
+    } else {
+      setMessage("网关正在启动中...");
+    }
     setIsProcessing(false);
   }, [startQuickstartJob]);
 
@@ -208,6 +231,17 @@ export default function App() {
     }
     setIsProcessing(false);
   }, [startQuickstartJob]);
+
+  const handleResourceDownload = useCallback(async () => {
+    setResourceMessage("正在下载资源...");
+    const result = await startResourceDownloadJob();
+    if (result.ok) {
+      setResourceMessage("资源下载完成。");
+    } else {
+      setResourceMessage(`下载失败: ${result.error}`);
+    }
+    return result;
+  }, [startResourceDownloadJob]);
 
   // Keyboard shortcut: Enter to submit
   useEffect(() => {
@@ -287,6 +321,7 @@ export default function App() {
                 message={cliMessage}
                 logs={cliLogs}
                 jobStatus={cliJobStatus}
+                jobError={cliJobError}
                 onInstall={handleCliInstall}
               />
             )}
@@ -299,6 +334,7 @@ export default function App() {
                 isProcessing={isProcessing}
                 logs={quickstartLogs}
                 jobStatus={quickstartJobStatus}
+                jobError={quickstartJobError}
                 onRetry={handleRetry}
               />
             )}
@@ -321,6 +357,9 @@ export default function App() {
                 isProcessing={isProcessing}
                 message={message}
                 pendingPairings={pendingPairings}
+                logs={pairingLogs}
+                jobStatus={pairingJobStatus}
+                jobError={pairingJobError}
               />
             )}
 
@@ -330,11 +369,21 @@ export default function App() {
                 message={probeMessage}
                 logs={quickstartLogs}
                 jobStatus={quickstartJobStatus}
+                jobError={quickstartJobError}
                 onRetry={handleProbe}
               />
             )}
 
-            {currentStep === "complete" && <CompleteStep probeOk={probeOk} />}
+            {currentStep === "complete" && (
+              <CompleteStep
+                probeOk={probeOk}
+                onDownloadResource={handleResourceDownload}
+                resourceLogs={resourceLogs}
+                resourceJobStatus={resourceJobStatus}
+                resourceMessage={resourceMessage}
+                resourceError={resourceJobError}
+              />
+            )}
           </Card>
         </div>
       </main>

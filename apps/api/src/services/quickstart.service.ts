@@ -14,7 +14,7 @@ export type QuickstartRequest = {
 
 type QuickstartResult =
   | { ok: true; gatewayReady: boolean; probeOk?: boolean }
-  | { ok: false; error: string; status: 400 | 500 };
+  | { ok: false; error: string; status: 400 | 500 | 504 };
 
 export async function runQuickstart(
   deps: ApiDeps,
@@ -50,7 +50,11 @@ export async function runQuickstart(
       return { ok: false, error: started.error ?? "unknown", status: 500 };
     }
     gatewayReady = await waitForGateway(gatewayHost, gatewayPort, 12_000);
-    log?.(gatewayReady ? "网关已就绪。" : "网关启动超时。");
+    if (!gatewayReady) {
+      log?.("网关启动超时。");
+      return { ok: false, error: "gateway not ready", status: 504 };
+    }
+    log?.("网关已就绪。");
   } else {
     log?.("检查网关状态...");
     const snapshot = await checkGateway(gatewayHost, gatewayPort);

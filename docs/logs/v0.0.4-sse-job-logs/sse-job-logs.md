@@ -41,6 +41,24 @@ curl -s -X POST http://127.0.0.1:17321/api/jobs/quickstart \
 curl -s http://127.0.0.1:17321/api/jobs/<jobId> -u admin:pass
 ```
 
+### 创建 Discord 配对 Job
+
+```bash
+curl -s -X POST http://127.0.0.1:17321/api/jobs/discord/pairing \
+  -H 'content-type: application/json' \
+  -u admin:pass \
+  -d '{"code":"VMZXPMCA"}'
+```
+
+### 创建资源下载 Job
+
+```bash
+curl -s -X POST http://127.0.0.1:17321/api/jobs/resources/download \
+  -H 'content-type: application/json' \
+  -u admin:pass \
+  -d '{"url":"https://example.com/resources.zip"}'
+```
+
 ### SSE 日志流
 
 ```bash
@@ -57,4 +75,4 @@ curl -N http://127.0.0.1:17321/api/jobs/<jobId>/stream -u admin:pass
 ## 前端使用
 
 - CLI 安装步骤会自动创建 Job 并展示日志
-- 其他步骤可复用同一接口（后续扩展）
+- 网关启动 / 通道探测 / 配对 / 资源下载复用相同 Job + SSE
