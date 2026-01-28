@@ -79,4 +79,6 @@ $cmdLine = "set MANAGER_API_HOST=$apiHost&& set MANAGER_API_PORT=$apiPort&& set 
 Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $cmdLine -WorkingDirectory $installDir -WindowStyle Hidden | Out-Null
 
 Write-Host "[manager] Started in background (log: $logPath)."
-Write-Host "[manager] Open: http://localhost:$apiPort"
+Write-Host "[manager] Open (local): http://localhost:$apiPort"
+Write-Host "[manager] Open (local): http://127.0.0.1:$apiPort"
+Write-Host "[manager] Open (LAN): http://<your-server-ip>:$apiPort"

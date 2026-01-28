@@ -138,4 +138,6 @@ if [[ -z "$HOST_IP" ]]; then
   HOST_IP="<your-server-ip>"
 fi
 
-echo "[manager] Open: http://$HOST_IP:$MANAGER_API_PORT"
+echo "[manager] Open (local): http://localhost:$MANAGER_API_PORT"
+echo "[manager] Open (local): http://127.0.0.1:$MANAGER_API_PORT"
+echo "[manager] Open (LAN): http://$HOST_IP:$MANAGER_API_PORT"
