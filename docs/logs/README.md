@@ -14,6 +14,7 @@
 - `docs/logs/v0.0.12-cli-steps/README.md`
 - `docs/logs/v0.0.13-pairing-wait/README.md`
 - `docs/logs/v0.0.14-pairing-prompt/README.md`
+- `docs/logs/v0.0.15-probe-retry/README.md`
 
 ## 写日志的标准
 

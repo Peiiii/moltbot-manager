@@ -113,11 +113,18 @@ export async function runQuickstart(
   }
 
   if (runProbe) {
+    const probeAttempts = parsePositiveInt(process.env.MANAGER_PROBE_ATTEMPTS) ?? 3;
+    const probeDelayMs = parsePositiveInt(process.env.MANAGER_PROBE_DELAY_MS) ?? 2000;
     log?.("执行通道探测...");
-    probeOk = await deps
-      .runCommand("clawdbot", ["channels", "status", "--probe"], 12_000)
-      .then(() => true)
-      .catch(() => false);
+    for (let attempt = 1; attempt <= probeAttempts; attempt += 1) {
+      probeOk = await deps
+        .runCommand("clawdbot", ["channels", "status", "--probe"], 12_000)
+        .then(() => true)
+        .catch(() => false);
+      if (probeOk || attempt >= probeAttempts) break;
+      log?.(`通道探测未通过，${probeDelayMs}ms 后重试 (${attempt}/${probeAttempts})...`);
+      await sleep(probeDelayMs);
+    }
     setLastProbe(Boolean(probeOk));
     log?.(probeOk ? "通道探测通过。" : "通道探测未通过。");
   }
