@@ -10,6 +10,14 @@
 curl -fsSL https://clawdbot-manager.pages.dev/install.sh | bash
 ```
 
+一行带账号密码（推荐）：
+```bash
+curl -fsSL https://clawdbot-manager.pages.dev/install.sh | MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash
+```
+
+提示：安装过程会提示输入管理员账号/密码；如在非交互环境（CI/脚本）运行，请提前设置
+`MANAGER_ADMIN_USER` 与 `MANAGER_ADMIN_PASS`。
+
 ### Windows (PowerShell)
 
 ```powershell

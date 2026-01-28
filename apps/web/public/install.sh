@@ -48,14 +48,45 @@ fi
 
 cd "$INSTALL_DIR"
 
-if [[ -z "${MANAGER_ADMIN_USER:-}" ]]; then
-  read -r -p "Admin username: " MANAGER_ADMIN_USER
-fi
+prompt_env() {
+  local var_name="$1"
+  local prompt="$2"
+  local secret="${3:-0}"
+  local input=""
 
-if [[ -z "${MANAGER_ADMIN_PASS:-}" ]]; then
-  read -r -s -p "Admin password: " MANAGER_ADMIN_PASS
-  echo ""
-fi
+  if [[ -n "${!var_name:-}" ]]; then
+    return 0
+  fi
+
+  if [[ -t 0 ]]; then
+    if [[ "$secret" == "1" ]]; then
+      read -r -s -p "$prompt" input
+      echo ""
+    else
+      read -r -p "$prompt" input
+    fi
+  elif [[ -r /dev/tty && -w /dev/tty ]]; then
+    if [[ "$secret" == "1" ]]; then
+      read -r -s -p "$prompt" input < /dev/tty
+      echo "" > /dev/tty
+    else
+      read -r -p "$prompt" input < /dev/tty
+    fi
+  else
+    echo "[manager] $var_name is required. Set env var or run in a TTY."
+    exit 1
+  fi
+
+  if [[ -z "$input" ]]; then
+    echo "[manager] $var_name is required."
+    exit 1
+  fi
+
+  printf -v "$var_name" "%s" "$input"
+}
+
+prompt_env "MANAGER_ADMIN_USER" "Admin username: " "0"
+prompt_env "MANAGER_ADMIN_PASS" "Admin password: " "1"
 
 pnpm install
 pnpm build

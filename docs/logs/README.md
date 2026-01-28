@@ -19,6 +19,7 @@
 - `docs/logs/v0.0.17-cli-user-doc/README.md`
 - `docs/logs/v0.0.18-cli-gateway-stop/README.md`
 - `docs/logs/v0.0.19-frontend-install-guide/README.md`
+- `docs/logs/v0.0.20-install-tty-prompt/README.md`
 
 ## 写日志的标准
 
