@@ -3,6 +3,7 @@ import type { Handler } from "hono";
 import type { ApiDeps } from "../deps.js";
 import {
   createCliInstallJob,
+  createAiAuthJob,
   createDiscordPairingJob,
   createQuickstartJob,
   createResourceDownloadJob
@@ -44,6 +45,18 @@ export function createResourceDownloadJobHandler(deps: ApiDeps): Handler {
     const url = typeof body?.url === "string" ? body.url.trim() : undefined;
     const filename = typeof body?.filename === "string" ? body.filename.trim() : undefined;
     const jobId = createResourceDownloadJob(deps, { url, filename });
+    return c.json({ ok: true, jobId });
+  };
+}
+
+export function createAiAuthJobHandler(deps: ApiDeps): Handler {
+  return async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const provider = typeof body?.provider === "string" ? body.provider.trim() : "";
+    const apiKey = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
+    if (!provider) return c.json({ ok: false, error: "missing provider" }, 400);
+    if (!apiKey) return c.json({ ok: false, error: "missing apiKey" }, 400);
+    const jobId = createAiAuthJob(deps, { provider, apiKey });
     return c.json({ ok: true, jobId });
   };
 }

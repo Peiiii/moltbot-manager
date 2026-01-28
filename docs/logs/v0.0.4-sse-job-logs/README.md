@@ -16,6 +16,7 @@
 - 拆分前端 store，避免单体 store 过大
 - 网关启动会自动写入必要配置（gateway.mode=local）
 - 网关失败会透出进程日志到 UI
+- 新增 AI 凭证配置步骤（Job + SSE 日志）
 - SSE 通用接口：`/api/jobs/*` + `/api/jobs/:id/stream`
 
 ## 验证方式

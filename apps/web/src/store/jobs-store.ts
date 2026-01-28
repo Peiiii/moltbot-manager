@@ -24,6 +24,7 @@ export type JobsState = {
   quickstart: JobState<QuickstartResult>;
   pairing: JobState<{ code?: string }>;
   resource: JobState<{ path?: string }>;
+  aiAuth: JobState<{ provider?: string }>;
   startCliInstallJob: () => Promise<{ ok: boolean; error?: string }>;
   startQuickstartJob: (opts: { runProbe?: boolean; startGateway?: boolean }) => Promise<{
     ok: boolean;
@@ -32,9 +33,10 @@ export type JobsState = {
   }>;
   startPairingJob: (code: string) => Promise<{ ok: boolean; error?: string }>;
   startResourceDownloadJob: (opts?: { url?: string; filename?: string }) => Promise<{ ok: boolean; error?: string }>;
+  startAiAuthJob: (provider: string, apiKey: string) => Promise<{ ok: boolean; error?: string }>;
 };
 
-type JobKey = "cli" | "quickstart" | "pairing" | "resource";
+type JobKey = "cli" | "quickstart" | "pairing" | "resource" | "aiAuth";
 
 const emptyJob = <T,>(): JobState<T> => ({
   jobId: null,
@@ -49,6 +51,7 @@ export const useJobsStore = create<JobsState>((set, get) => ({
   quickstart: emptyJob(),
   pairing: emptyJob(),
   resource: emptyJob(),
+  aiAuth: emptyJob(),
   startCliInstallJob: async () => {
     return runJob(set, get, {
       jobKey: "cli",
@@ -86,6 +89,14 @@ export const useJobsStore = create<JobsState>((set, get) => ({
       jobKey: "resource",
       endpoint: "/api/jobs/resources/download",
       payload: { url: opts?.url, filename: opts?.filename },
+      withResult: true
+    });
+  },
+  startAiAuthJob: async (provider, apiKey) => {
+    return runJob(set, get, {
+      jobKey: "aiAuth",
+      endpoint: "/api/jobs/ai/auth",
+      payload: { provider, apiKey },
       withResult: true
     });
   }

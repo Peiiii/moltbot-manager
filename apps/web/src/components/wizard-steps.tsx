@@ -305,6 +305,155 @@ export function TokenStep({ value, onChange, onSubmit, isProcessing, message }: 
 }
 
 // ============================================
+// AI Step
+// ============================================
+
+interface AiStepProps {
+    provider: string;
+    value: string;
+    onProviderChange: (value: string) => void;
+    onChange: (value: string) => void;
+    onSubmit: () => void;
+    isProcessing: boolean;
+    message: string | null;
+    configured: boolean;
+    missingProviders: string[];
+    logs: string[];
+    jobStatus: JobStatus;
+    jobError: string | null;
+    statusError: string | null;
+}
+
+const AI_PROVIDER_OPTIONS = [
+    { value: "anthropic", label: "Anthropic (Claude)" },
+    { value: "openai", label: "OpenAI" },
+    { value: "openrouter", label: "OpenRouter" },
+    { value: "minimax", label: "MiniMax" },
+    { value: "gemini", label: "Gemini (Google)" },
+    { value: "zai", label: "Z.AI" },
+    { value: "moonshot", label: "Moonshot" }
+];
+
+const AI_PROVIDER_HELP: Record<string, string> = {
+    anthropic: "https://console.anthropic.com/settings/keys",
+    openai: "https://platform.openai.com/api-keys",
+    openrouter: "https://openrouter.ai/keys"
+};
+
+export function AiStep({
+    provider,
+    value,
+    onProviderChange,
+    onChange,
+    onSubmit,
+    isProcessing,
+    message,
+    configured,
+    missingProviders,
+    logs,
+    jobStatus,
+    jobError,
+    statusError
+}: AiStepProps) {
+    const helpLink = AI_PROVIDER_HELP[provider];
+    return (
+        <div className="space-y-6 p-8">
+            <div className="text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10">
+                    <Shield className="h-8 w-8 text-accent" />
+                </div>
+                <h2 className="mt-4 text-2xl font-semibold">配置 AI 能力</h2>
+                <p className="mt-2 text-sm text-muted">
+                    为默认模型配置 API Key，否则无法生成回复
+                </p>
+            </div>
+
+            {missingProviders.length > 0 ? (
+                <div className="rounded-2xl bg-warning/10 px-4 py-2 text-xs text-warning text-center">
+                    缺少模型提供方凭证：{missingProviders.join(", ")}
+                </div>
+            ) : null}
+
+            {configured ? (
+                <div className="rounded-2xl bg-success/10 px-4 py-2 text-sm text-success text-center">
+                    已检测到模型凭证。
+                </div>
+            ) : null}
+
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <label className="text-xs text-muted">模型提供方</label>
+                    <select
+                        value={provider}
+                        onChange={(e) => onProviderChange(e.target.value)}
+                        className="w-full rounded-xl border border-line/60 bg-white/70 px-3 py-2 text-sm text-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                    >
+                        {AI_PROVIDER_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <Input
+                    type="password"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder="粘贴 API Key"
+                    className="text-center"
+                />
+                <Button
+                    onClick={onSubmit}
+                    disabled={!value.trim() || isProcessing}
+                    size="lg"
+                    className="w-full"
+                >
+                    {isProcessing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <>
+                            保存并继续
+                            <ArrowRight className="h-4 w-4" />
+                        </>
+                    )}
+                </Button>
+            </div>
+
+            {helpLink ? (
+                <div className="text-center text-xs text-muted">
+                    获取密钥：
+                    <a
+                        href={helpLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-1 text-accent hover:underline"
+                    >
+                        {helpLink}
+                    </a>
+                </div>
+            ) : null}
+
+            <JobLogPanel title="AI 配置日志" logs={logs} status={jobStatus} />
+            {jobStatus === "failed" ? (
+                <div className="rounded-2xl bg-warning/10 px-4 py-2 text-xs text-warning text-center">
+                    配置失败：{jobError ?? "未知错误"}
+                </div>
+            ) : null}
+            {statusError ? (
+                <div className="rounded-2xl bg-warning/10 px-4 py-2 text-xs text-warning text-center">
+                    状态检测失败：{statusError}
+                </div>
+            ) : null}
+            {message && (
+                <div className="rounded-2xl bg-line/30 px-4 py-2 text-xs text-muted text-center">
+                    {message}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ============================================
 // Pairing Step
 // ============================================
 

@@ -59,6 +59,15 @@ curl -s -X POST http://127.0.0.1:17321/api/jobs/resources/download \
   -d '{"url":"https://example.com/resources.zip"}'
 ```
 
+### 创建 AI 配置 Job
+
+```bash
+curl -s -X POST http://127.0.0.1:17321/api/jobs/ai/auth \
+  -H 'content-type: application/json' \
+  -u admin:pass \
+  -d '{"provider":"anthropic","apiKey":"sk-ant-***"}'
+```
+
 ### SSE 日志流
 
 ```bash

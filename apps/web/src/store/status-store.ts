@@ -53,6 +53,11 @@ export type StatusResponse = {
       allowFromConfigured: boolean;
       pendingPairings: number;
     };
+    ai?: {
+      configured: boolean;
+      missingProviders: string[];
+      error?: string | null;
+    };
     probe: { ok: boolean; at: string } | null;
   };
   commands: CommandEntry[];

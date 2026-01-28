@@ -7,6 +7,7 @@ import {
   CliStep,
   GatewayStep,
   TokenStep,
+  AiStep,
   PairingStep,
   ProbeStep,
   CompleteStep
@@ -23,19 +24,24 @@ export default function App() {
     quickstart,
     pairing,
     resource,
+    aiAuth,
     startCliInstallJob,
     startQuickstartJob,
     startPairingJob,
-    startResourceDownloadJob
+    startResourceDownloadJob,
+    startAiAuthJob
   } = useJobsStore();
 
   const [currentStep, setCurrentStep] = useState<WizardStep>("auth");
   const [tokenInput, setTokenInput] = useState("");
+  const [aiProvider, setAiProvider] = useState("anthropic");
+  const [aiKeyInput, setAiKeyInput] = useState("");
   const [pairingInput, setPairingInput] = useState("");
   const [authUser, setAuthUser] = useState("");
   const [authPass, setAuthPass] = useState("");
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [cliMessage, setCliMessage] = useState<string | null>(null);
   const [probeMessage, setProbeMessage] = useState<string | null>(null);
   const [resourceMessage, setResourceMessage] = useState<string | null>(null);
@@ -47,6 +53,9 @@ export default function App() {
   const cliVersion = status?.cli.version ?? null;
   const gatewayOk = Boolean(status?.gateway.ok);
   const tokenConfigured = Boolean(status?.onboarding?.discord.tokenConfigured);
+  const aiConfigured = Boolean(status?.onboarding?.ai?.configured);
+  const aiMissingProviders = status?.onboarding?.ai?.missingProviders ?? [];
+  const aiStatusError = status?.onboarding?.ai?.error ?? null;
   const allowFromConfigured = Boolean(status?.onboarding?.discord.allowFromConfigured);
   const probeOk = status?.onboarding?.probe?.ok === true;
   const pendingPairings = status?.onboarding?.discord.pendingPairings ?? 0;
@@ -63,11 +72,15 @@ export default function App() {
   const resourceLogs = resource.logs;
   const resourceJobStatus = resource.status;
   const resourceJobError = resource.error;
+  const aiLogs = aiAuth.logs;
+  const aiJobStatus = aiAuth.status;
+  const aiJobError = aiAuth.error;
   const jobsRunning =
     cliJobStatus === "running" ||
     quickstartJobStatus === "running" ||
     pairingJobStatus === "running" ||
-    resourceJobStatus === "running";
+    resourceJobStatus === "running" ||
+    aiJobStatus === "running";
 
   // Polling
   useEffect(() => {
@@ -128,16 +141,28 @@ export default function App() {
       setCurrentStep("cli");
     } else if (probeOk) {
       setCurrentStep("complete");
-    } else if (gatewayOk && tokenConfigured && allowFromConfigured) {
+    } else if (gatewayOk && tokenConfigured && !aiConfigured) {
+      setCurrentStep("ai");
+    } else if (gatewayOk && tokenConfigured && aiConfigured && allowFromConfigured) {
       setCurrentStep("probe");
-    } else if (gatewayOk && tokenConfigured) {
+    } else if (gatewayOk && tokenConfigured && aiConfigured) {
       setCurrentStep("pairing");
     } else if (gatewayOk) {
       setCurrentStep("token");
     } else {
       setCurrentStep("gateway");
     }
-  }, [status, authRequired, authHeader, cliInstalled, gatewayOk, tokenConfigured, allowFromConfigured, probeOk]);
+  }, [
+    status,
+    authRequired,
+    authHeader,
+    cliInstalled,
+    gatewayOk,
+    tokenConfigured,
+    aiConfigured,
+    allowFromConfigured,
+    probeOk
+  ]);
 
   // Handlers
   const handleAuthSubmit = useCallback(async () => {
@@ -180,6 +205,20 @@ export default function App() {
     }
     setIsProcessing(false);
   }, [tokenInput, setDiscordToken]);
+
+  const handleAiSubmit = useCallback(async () => {
+    if (!aiKeyInput.trim()) return;
+    setIsProcessing(true);
+    setAiMessage(null);
+    const result = await startAiAuthJob(aiProvider, aiKeyInput.trim());
+    if (result.ok) {
+      setAiKeyInput("");
+      setAiMessage("AI 凭证已保存。");
+    } else {
+      setAiMessage(`配置失败: ${result.error}`);
+    }
+    setIsProcessing(false);
+  }, [aiKeyInput, aiProvider, startAiAuthJob]);
 
   const handlePairingSubmit = useCallback(async () => {
     if (!pairingInput.trim()) return;
@@ -253,6 +292,8 @@ export default function App() {
           handleCliInstall();
         } else if (currentStep === "token" && tokenInput.trim()) {
           handleTokenSubmit();
+        } else if (currentStep === "ai" && aiKeyInput.trim()) {
+          handleAiSubmit();
         } else if (currentStep === "pairing" && pairingInput.trim()) {
           handlePairingSubmit();
         } else if (currentStep === "probe") {
@@ -270,11 +311,13 @@ export default function App() {
     authPass,
     cliInstalled,
     tokenInput,
+    aiKeyInput,
     pairingInput,
     isProcessing,
     handleAuthSubmit,
     handleCliInstall,
     handleTokenSubmit,
+    handleAiSubmit,
     handlePairingSubmit,
     handleProbe
   ]);
@@ -346,6 +389,24 @@ export default function App() {
                 onSubmit={handleTokenSubmit}
                 isProcessing={isProcessing}
                 message={message}
+              />
+            )}
+
+            {currentStep === "ai" && (
+              <AiStep
+                provider={aiProvider}
+                value={aiKeyInput}
+                onProviderChange={setAiProvider}
+                onChange={setAiKeyInput}
+                onSubmit={handleAiSubmit}
+                isProcessing={isProcessing}
+                message={aiMessage}
+                configured={aiConfigured}
+                missingProviders={aiMissingProviders}
+                logs={aiLogs}
+                jobStatus={aiJobStatus}
+                jobError={aiJobError}
+                statusError={aiStatusError}
               />
             )}
 

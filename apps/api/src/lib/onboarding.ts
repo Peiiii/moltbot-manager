@@ -7,6 +7,11 @@ export type OnboardingStatus = {
     allowFromConfigured: boolean;
     pendingPairings: number;
   };
+  ai: {
+    configured: boolean;
+    missingProviders: string[];
+    error?: string | null;
+  };
   probe: { ok: boolean; at: string } | null;
 };
 
@@ -33,16 +38,21 @@ export async function getOnboardingStatus(
         allowFromConfigured: false,
         pendingPairings: 0
       },
+      ai: {
+        configured: false,
+        missingProviders: []
+      },
       probe: lastProbe
     };
     onboardingCache = { at: now, data };
     return data;
   }
 
-  const [tokenConfigured, allowFromConfigured, pendingPairings] = await Promise.all([
+  const [tokenConfigured, allowFromConfigured, pendingPairings, aiStatus] = await Promise.all([
     readDiscordTokenConfigured(runCommand),
     readDiscordAllowFromConfigured(runCommand),
-    readPendingDiscordPairings(runCommand)
+    readPendingDiscordPairings(runCommand),
+    readAiAuthStatus(runCommand)
   ]);
 
   const data: OnboardingStatus = {
@@ -51,6 +61,7 @@ export async function getOnboardingStatus(
       allowFromConfigured,
       pendingPairings
     },
+    ai: aiStatus,
     probe: lastProbe
   };
   onboardingCache = { at: now, data };
@@ -89,5 +100,27 @@ async function readPendingDiscordPairings(runCommand: CommandRunner): Promise<nu
     return Array.isArray(parsed?.requests) ? parsed.requests.length : 0;
   } catch {
     return 0;
+  }
+}
+
+async function readAiAuthStatus(runCommand: CommandRunner) {
+  try {
+    const output = await runCommand("clawdbot", ["models", "status", "--json"], 8000);
+    const parsed = JSON.parse(output) as {
+      auth?: { missingProvidersInUse?: unknown };
+    };
+    const missing = Array.isArray(parsed?.auth?.missingProvidersInUse)
+      ? parsed.auth?.missingProvidersInUse.map((item) => String(item))
+      : [];
+    return {
+      configured: missing.length === 0,
+      missingProviders: missing
+    };
+  } catch (err) {
+    return {
+      configured: false,
+      missingProviders: [],
+      error: err instanceof Error ? err.message : String(err)
+    };
   }
 }

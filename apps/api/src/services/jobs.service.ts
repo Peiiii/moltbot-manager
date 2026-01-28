@@ -130,3 +130,111 @@ export function createResourceDownloadJob(
 
   return job.id;
 }
+
+export function createAiAuthJob(
+  deps: ApiDeps,
+  options: { provider: string; apiKey: string }
+) {
+  const job = deps.jobStore.createJob("Configure AI Provider");
+  deps.jobStore.startJob(job.id);
+  deps.jobStore.appendLog(job.id, "开始配置 AI 凭证...");
+
+  const provider = options.provider.trim().toLowerCase();
+  const config = resolveAiProviderConfig(provider);
+  if (!config) {
+    deps.jobStore.appendLog(job.id, `不支持的 provider: ${provider}`);
+    deps.jobStore.failJob(job.id, "unsupported provider");
+    return job.id;
+  }
+
+  const apiKey = options.apiKey.trim();
+  if (!apiKey) {
+    deps.jobStore.appendLog(job.id, "API Key 为空。");
+    deps.jobStore.failJob(job.id, "missing api key");
+    return job.id;
+  }
+
+  const timeoutMs = parsePositiveInt(process.env.MANAGER_AI_AUTH_TIMEOUT_MS) ?? 120_000;
+  const args = [
+    "onboard",
+    "--non-interactive",
+    "--accept-risk",
+    "--flow",
+    "manual",
+    "--mode",
+    "local",
+    "--auth-choice",
+    config.authChoice,
+    "--skip-channels",
+    "--skip-skills",
+    "--skip-health",
+    "--skip-ui",
+    "--skip-daemon"
+  ];
+
+  void runCommandWithLogs("clawdbot", args, {
+    cwd: deps.repoRoot,
+    env: {
+      ...process.env,
+      [config.envVar]: apiKey
+    },
+    timeoutMs,
+    onLog: (line) => deps.jobStore.appendLog(job.id, line)
+  })
+    .then(() => {
+      deps.jobStore.appendLog(job.id, "AI 凭证配置完成。");
+      deps.jobStore.completeJob(job.id, { provider });
+    })
+    .catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      deps.jobStore.appendLog(job.id, `AI 配置失败: ${message}`);
+      deps.jobStore.failJob(job.id, message);
+    });
+
+  return job.id;
+}
+
+function resolveAiProviderConfig(
+  provider: string
+): { authChoice: string; envVar: string } | null {
+  if (provider === "anthropic") {
+    return { authChoice: "apiKey", envVar: "ANTHROPIC_API_KEY" };
+  }
+  if (provider === "openai") {
+    return { authChoice: "openai-api-key", envVar: "OPENAI_API_KEY" };
+  }
+  if (provider === "openrouter") {
+    return { authChoice: "openrouter-api-key", envVar: "OPENROUTER_API_KEY" };
+  }
+  if (provider === "ai-gateway") {
+    return { authChoice: "ai-gateway-api-key", envVar: "AI_GATEWAY_API_KEY" };
+  }
+  if (provider === "gemini") {
+    return { authChoice: "gemini-api-key", envVar: "GEMINI_API_KEY" };
+  }
+  if (provider === "zai") {
+    return { authChoice: "zai-api-key", envVar: "ZAI_API_KEY" };
+  }
+  if (provider === "moonshot") {
+    return { authChoice: "moonshot-api-key", envVar: "MOONSHOT_API_KEY" };
+  }
+  if (provider === "kimi-code") {
+    return { authChoice: "kimi-code-api-key", envVar: "KIMI_CODE_API_KEY" };
+  }
+  if (provider === "minimax") {
+    return { authChoice: "minimax-api", envVar: "MINIMAX_API_KEY" };
+  }
+  if (provider === "minimax-lightning") {
+    return { authChoice: "minimax-api-lightning", envVar: "MINIMAX_API_KEY" };
+  }
+  if (provider === "venice") {
+    return { authChoice: "venice-api-key", envVar: "VENICE_API_KEY" };
+  }
+  if (provider === "synthetic") {
+    return { authChoice: "synthetic-api-key", envVar: "SYNTHETIC_API_KEY" };
+  }
+  if (provider === "opencode-zen") {
+    return { authChoice: "opencode-zen", envVar: "OPENCODE_ZEN_API_KEY" };
+  }
+  return null;
+}
