@@ -47,6 +47,9 @@
 - `docs/logs/v0.0.45-user-intent-analysis/README.md`
 - `docs/logs/v0.0.46-deploy-docs/README.md`
 - `docs/logs/v0.0.47-quickstart-logs/README.md`
+- `docs/logs/v0.0.48-dev-docs-verify-section/README.md`
+- `docs/logs/v0.0.49-dev-docs-dev-vs-verify/README.md`
+- `docs/logs/v0.0.50-dev-docs-local-docker/README.md`
 
 ## 写日志的标准
 

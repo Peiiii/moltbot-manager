@@ -2,16 +2,18 @@
 
 面向本项目开发者的“场景 + 链路”指引，按工作环节组织。
 
-## 场景 1：首次拉起开发环境
+## 开发调试
 
-目标：把前后端都跑起来，能访问 Web 并连通 API。
+目标：让开发者本地可运行、可修改、可调试。
 
-1) 安装依赖
+### 环境准备
+
 ```bash
 pnpm install
 ```
 
-2) 一键启动 Web + API
+### 本地开发启动
+
 ```bash
 pnpm dev
 ```
@@ -22,9 +24,7 @@ pnpm dev
 - `MANAGER_AUTH_USERNAME` / `MANAGER_AUTH_PASSWORD`：API 管理员账号
 - `VITE_MANAGER_API_URL`：Web 访问的 API 地址
 
-## 场景 2：只跑前端 / 只跑后端
-
-目标：局部开发调试，减少干扰。
+### 单独启动（局部调试）
 
 仅启动 Web：
 ```bash
@@ -36,49 +36,59 @@ pnpm dev:web
 pnpm dev:api
 ```
 
-## 场景 3：快速验证一条完整链路
-
-目标：不进 UI，通过 CLI 跑通主要流程。
-
-参考：`docs/cli.md`
-
-## 场景 4：发布前自检
-
-目标：保证基础构建与类型检查通过。
+### 自检（构建/类型）
 
 ```bash
 pnpm lint
 pnpm build
 ```
 
-## 场景 5：验证方式选择
+## 验证
 
-目标：明确“验证目标”与“验证路径”的对应关系。
+目标：模拟用户操作，验证安装与流程是否可用。
 
-### A) 只验证前端构建是否正常
+### 1) 本机脚本验证（推荐）
 
-```bash
-pnpm --filter clawdbot-manager-web build
-```
+适合模拟“用户在本机执行安装脚本”的流程。
 
-### B) 只验证后端构建是否正常
+推荐顺序：
 
 ```bash
-pnpm --filter clawdbot-manager-api build
+pnpm manager:reset
+MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash scripts/install.sh
 ```
 
-### C) 验证 Web 能否连通 API
+说明：`scripts/install.sh` 会转发到 `apps/web/public/install.sh`，效果等同线上脚本。
 
-1) 启动 API  
-2) 启动 Web  
-3) 浏览器访问页面
+### 2) 远程脚本验证（VPS）
+
+适合模拟“用户在 VPS 上通过 curl 安装”的流程。
 
 ```bash
-pnpm dev:api
-pnpm dev:web
+curl -fsSL https://clawdbot-manager.pages.dev/install.sh | MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash
 ```
 
-### D) 走 CLI 进行端到端验证（推荐）
+### 3) Docker 验证
+
+适合模拟 VPS 或隔离环境。
+
+```bash
+curl -fsSL https://clawdbot-manager.pages.dev/docker.sh | bash
+```
+
+**带账号密码（推荐）**
+
+```bash
+MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass curl -fsSL https://clawdbot-manager.pages.dev/docker.sh | bash
+```
+
+**本机脚本验证（等同线上 docker.sh）**
+
+```bash
+MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash scripts/docker.sh
+```
+
+### 4) CLI 端到端验证
 
 一键隔离验证：
 ```bash
@@ -90,33 +100,13 @@ pnpm manager:verify
 pnpm manager:pairing-approve -- --code "<PAIRING_CODE>" --continue
 ```
 
-### E) 验证部署链路（可选）
+### 5) 部署验证（可选）
 
 ```bash
 pnpm deploy:pages
 ```
 
-### F) 本地安装脚本验证（对标线上 curl 安装）
-
-在仓库根目录执行本地脚本，效果等同于：
-`curl -fsSL https://clawdbot-manager.pages.dev/install.sh | ...`
-
-```bash
-MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash scripts/install.sh
-```
-
-建议在验证前清理历史数据：
-
-```bash
-pnpm manager:reset
-```
-
-推荐顺序（完整清理后再安装）：
-
-```bash
-pnpm manager:reset
-MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash scripts/install.sh
-```
+发布细节见：`docs/deploy.md`。
 
 ## 场景 5：贡献协作流程
 
