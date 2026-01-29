@@ -58,6 +58,19 @@ pnpm manager:apply -- --config ./manager.toml
 pnpm manager:pairing-approve -- --code "ABCDE123" --continue
 ```
 
+### 方案 C：隔离沙盒快速验证
+
+1) 生成隔离环境并启动 API  
+2) 使用输出的环境变量执行 `apply`  
+3) 验证结束后停止沙盒
+
+```bash
+pnpm manager:sandbox -- --print-env
+# 可选：--user/--pass 自定义沙盒管理员账号
+# 按输出的 export 执行 apply
+pnpm manager:sandbox-stop -- --dir "/tmp/clawdbot-manager-sandbox-<timestamp>"
+```
+
 ## 完整示例流程
 
 下面是一个从零到验证完成的完整顺序示例（包含配对步骤）。将示例中的占位值替换为你的真实配置，并保存为 `manager.toml`。
@@ -133,6 +146,16 @@ pnpm manager:pairing-approve -- --code "ABCDE123" --continue
 查看状态：
 ```bash
 pnpm manager:status
+```
+
+创建隔离沙盒（快速验证）：
+```bash
+pnpm manager:sandbox -- --print-env
+```
+
+停止隔离沙盒：
+```bash
+pnpm manager:sandbox-stop -- --dir "/tmp/clawdbot-manager-sandbox-<timestamp>"
 ```
 
 快速启动网关：

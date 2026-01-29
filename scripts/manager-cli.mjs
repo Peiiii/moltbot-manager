@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
 const cmd = args[0];
@@ -29,6 +31,19 @@ try {
     });
     const data = await requestJson("GET", `${apiBase}/api/status${query}`, null, auth);
     console.log(JSON.stringify(data, null, 2));
+    process.exit(0);
+  }
+
+  if (cmd === "sandbox") {
+    const result = await createSandbox({ flags, nonInteractive });
+    printSandboxSummary(result, { printEnv: Boolean(flags["print-env"]) });
+    process.exit(0);
+  }
+
+  if (cmd === "sandbox-stop") {
+    const result = stopSandbox({ flags });
+    if (!result.ok) throw new Error(result.error ?? "sandbox stop failed");
+    console.log(result.message);
     process.exit(0);
   }
 
@@ -492,6 +507,8 @@ Usage:
 
 Commands:
   status                  Show status snapshot
+  sandbox                 Prepare an isolated sandbox for quick validation
+  sandbox-stop            Stop sandbox API process
   apply                   Run steps from a TOML config
   login                   Verify login (use --user/--pass)
   quickstart              Start gateway (optional --run-probe)
@@ -511,6 +528,11 @@ Common flags:
   --user <user>           Auth username (or MANAGER_AUTH_USER)
   --pass <pass>           Auth password (or MANAGER_AUTH_PASS)
   --non-interactive       Disable prompts (or MANAGER_NON_INTERACTIVE=1)
+  --dir <path>            Sandbox directory (sandbox only)
+  --api-port <port>       Sandbox API port (sandbox only)
+  --gateway-port <port>   Sandbox gateway port (sandbox only)
+  --no-start              Do not start API server (sandbox only)
+  --print-env             Print export statements (sandbox only)
   --config-dir <path>     Service config directory (server-stop only)
   --install-dir <path>    Service install directory (server-stop only)
   --pid-file <path>       PID file path (server-stop only)
@@ -621,6 +643,299 @@ async function applyConfig(config, apiBaseUrl, authHeader, options) {
   }
 }
 
+async function createSandbox(params) {
+  const rootDir = resolveSandboxDir(params.flags);
+  const reuse = Boolean(params.flags.reuse);
+  const overwrite = Boolean(params.flags.overwrite);
+  const startServer = params.flags.start !== false && params.flags["no-start"] !== true;
+  if (fs.existsSync(rootDir) && !reuse) {
+    throw new Error(`sandbox dir exists: ${rootDir} (use --reuse or --dir)`);
+  }
+  fs.mkdirSync(rootDir, { recursive: true });
+
+  const stateDir = path.join(rootDir, "state");
+  const credentialsDir = path.join(stateDir, "credentials");
+  fs.mkdirSync(credentialsDir, { recursive: true });
+
+  const apiPort = await resolveAvailablePort(parseNumberFlag(params.flags["api-port"]) ?? 17321);
+  const gatewayPort = await resolveAvailablePort(
+    parseNumberFlag(params.flags["gateway-port"]) ?? 18789,
+    [apiPort]
+  );
+
+  const admin = resolveSandboxAdmin(params);
+  const apiBase = `http://127.0.0.1:${apiPort}`;
+  const configPath = path.join(rootDir, "manager.toml");
+  if (!fs.existsSync(configPath) || overwrite) {
+    const content = renderSandboxToml({
+      apiBase,
+      adminUser: admin.user,
+      adminPass: admin.pass,
+      gatewayPort
+    });
+    fs.writeFileSync(configPath, content, "utf-8");
+  }
+
+  const metaPath = path.join(rootDir, "sandbox.json");
+  const meta = {
+    createdAt: new Date().toISOString(),
+    apiBase,
+    apiPort,
+    gatewayPort,
+    stateDir,
+    credentialsDir,
+    configPath,
+    adminUser: admin.user
+  };
+  fs.writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`, "utf-8");
+
+  let pid = null;
+  let logFile = null;
+  if (startServer) {
+    const repoRoot = resolveRepoRoot();
+    const apiEntry = resolveApiEntry(params.flags, repoRoot);
+    if (!fs.existsSync(apiEntry)) {
+      const allowBuild = params.flags.build !== false && params.flags["no-build"] !== true;
+      if (!allowBuild) {
+        throw new Error(`api entry not found: ${apiEntry} (run pnpm build or use --build)`);
+      }
+      const buildResult = spawnSync("pnpm", ["--filter", "clawdbot-manager-api", "build"], {
+        cwd: repoRoot,
+        stdio: "inherit"
+      });
+      if (buildResult.status !== 0) {
+        throw new Error("failed to build api");
+      }
+    }
+    const pidFile = path.join(rootDir, "manager-api.pid");
+    logFile = path.join(rootDir, "manager-api.log");
+    const out = fs.openSync(logFile, "a");
+    const env = {
+      ...process.env,
+      MANAGER_API_PORT: String(apiPort),
+      MANAGER_AUTH_USERNAME: admin.user,
+      MANAGER_AUTH_PASSWORD: admin.pass,
+      CLAWDBOT_STATE_DIR: stateDir,
+      CLAWDBOT_OAUTH_DIR: credentialsDir,
+      CLAWDBOT_GATEWAY_PORT: String(gatewayPort)
+    };
+    const child = spawn("node", [apiEntry], {
+      cwd: repoRoot,
+      env,
+      detached: true,
+      stdio: ["ignore", out, out]
+    });
+    child.unref();
+    pid = child.pid ?? null;
+    if (pid) {
+      fs.writeFileSync(pidFile, String(pid), "utf-8");
+    }
+    const ready = await waitForApiReady(apiBase, admin, 12_000);
+    if (!ready) {
+      throw new Error("api not ready within timeout");
+    }
+  }
+
+  return {
+    rootDir,
+    apiBase,
+    apiPort,
+    gatewayPort,
+    stateDir,
+    credentialsDir,
+    configPath,
+    admin,
+    pid,
+    logFile
+  };
+}
+
+function stopSandbox(params) {
+  const rootDir = resolveSandboxDirRequired(params.flags);
+  if (!rootDir) {
+    return { ok: false, error: "missing --dir (sandbox directory)" };
+  }
+  const pidFile = path.join(rootDir, "manager-api.pid");
+  if (!fs.existsSync(pidFile)) {
+    return { ok: false, error: `pid file not found: ${pidFile}` };
+  }
+  const raw = fs.readFileSync(pidFile, "utf-8").trim();
+  const pid = Number(raw);
+  if (!Number.isFinite(pid) || pid <= 0) {
+    return { ok: false, error: `invalid pid in ${pidFile}` };
+  }
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch (err) {
+    return { ok: false, error: `failed to stop pid ${pid}: ${String(err)}` };
+  }
+  if (params.flags.clean === true) {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+    return { ok: true, message: `sandbox stopped and removed (${rootDir})` };
+  }
+  return { ok: true, message: `sandbox stopped (pid ${pid})` };
+}
+
+function resolveSandboxDir(flags) {
+  const value =
+    flags.dir ??
+    flags["sandbox-dir"] ??
+    process.env.MANAGER_SANDBOX_DIR ??
+    "";
+  if (typeof value === "string" && value.trim()) {
+    return path.resolve(value.trim());
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return path.join(os.tmpdir(), `clawdbot-manager-sandbox-${stamp}`);
+}
+
+function resolveSandboxDirRequired(flags) {
+  const value =
+    flags.dir ??
+    flags["sandbox-dir"] ??
+    process.env.MANAGER_SANDBOX_DIR ??
+    "";
+  if (typeof value === "string" && value.trim()) {
+    return path.resolve(value.trim());
+  }
+  return "";
+}
+
+function resolveSandboxAdmin(params) {
+  const base = resolveAdminCredentials({ flags: params.flags, config: null });
+  const user = base.user || "admin";
+  const pass = base.pass || "pass";
+  return { user, pass };
+}
+
+function resolveRepoRoot() {
+  const envRoot = process.env.MANAGER_REPO_ROOT;
+  if (envRoot) return path.resolve(envRoot);
+  const start = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  let current = start;
+  for (let i = 0; i < 6; i += 1) {
+    const candidate = path.join(current, "package.json");
+    if (fs.existsSync(candidate)) {
+      try {
+        const raw = fs.readFileSync(candidate, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (parsed?.name === "clawdbot-manager") {
+          return current;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return path.resolve(process.cwd());
+}
+
+function resolveApiEntry(flags, repoRoot) {
+  const value = flags["api-entry"] ?? process.env.MANAGER_API_ENTRY;
+  if (typeof value === "string" && value.trim()) {
+    return path.resolve(value.trim());
+  }
+  return path.join(repoRoot, "apps", "api", "dist", "index.js");
+}
+
+function renderSandboxToml(params) {
+  return [
+    `[api]`,
+    `base = "${params.apiBase}"`,
+    ``,
+    `[admin]`,
+    `user = "${params.adminUser}"`,
+    `pass = "${params.adminPass}"`,
+    ``,
+    `[gateway]`,
+    `port = ${params.gatewayPort}`,
+    ``,
+    `[install]`,
+    `cli = true`,
+    ``
+  ].join("\n");
+}
+
+async function resolveAvailablePort(start, avoid = []) {
+  const normalizedAvoid = new Set(avoid.filter((value) => typeof value === "number"));
+  for (let offset = 0; offset < 40; offset += 1) {
+    const candidate = start + offset;
+    if (normalizedAvoid.has(candidate)) continue;
+    if (await isPortFree(candidate)) return candidate;
+  }
+  const fallback = await getEphemeralPort();
+  if (normalizedAvoid.has(fallback)) {
+    return await getEphemeralPort();
+  }
+  return fallback;
+}
+
+async function isPortFree(port) {
+  return await new Promise((resolve) => {
+    const server = createServer();
+    server.once("error", () => resolve(false));
+    server.listen(port, "127.0.0.1", () => {
+      server.close(() => resolve(true));
+    });
+  });
+}
+
+async function getEphemeralPort() {
+  return await new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : null;
+      server.close(() => resolve(typeof port === "number" ? port : 0));
+    });
+  });
+}
+
+async function waitForApiReady(apiBase, admin, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const auth = buildBasicAuth(admin.user, admin.pass);
+      const res = await fetch(`${apiBase}/api/status`, { headers: { authorization: auth } });
+      if (res.ok) return true;
+    } catch {
+      // retry
+    }
+    await sleep(250);
+  }
+  return false;
+}
+
+function printSandboxSummary(result, options) {
+  console.log(`[sandbox] root: ${result.rootDir}`);
+  console.log(`[sandbox] api: ${result.apiBase}`);
+  console.log(`[sandbox] state: ${result.stateDir}`);
+  console.log(`[sandbox] config: ${result.configPath}`);
+  console.log(`[sandbox] admin: ${result.admin.user} / ${result.admin.pass}`);
+  if (result.pid) {
+    console.log(`[sandbox] api pid: ${result.pid}`);
+  }
+  if (result.logFile) {
+    console.log(`[sandbox] api log: ${result.logFile}`);
+  }
+  console.log(
+    `[sandbox] next: MANAGER_CONFIG_PATH="${result.configPath}" MANAGER_API_URL="${result.apiBase}" MANAGER_AUTH_USER="${result.admin.user}" MANAGER_AUTH_PASS="${result.admin.pass}" pnpm manager:apply -- --non-interactive`
+  );
+  console.log(
+    `[sandbox] stop: node scripts/manager-cli.mjs sandbox-stop --dir "${result.rootDir}"`
+  );
+  if (options.printEnv) {
+    console.log(`export MANAGER_CONFIG_PATH="${result.configPath}"`);
+    console.log(`export MANAGER_API_URL="${result.apiBase}"`);
+    console.log(`export MANAGER_AUTH_USER="${result.admin.user}"`);
+    console.log(`export MANAGER_AUTH_PASS="${result.admin.pass}"`);
+  }
+}
+
 function isNonInteractive(flags) {
   return (
     flags["non-interactive"] === true ||
@@ -667,6 +982,10 @@ function parseNumberFlag(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return Math.floor(parsed);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function stopManagerService(params) {
