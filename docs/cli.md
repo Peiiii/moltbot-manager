@@ -183,6 +183,15 @@ pnpm manager:stop-all
 pnpm manager:stop-all -- --dry-run
 ```
 
+清理本地数据（便于重跑安装验证）：
+```bash
+pnpm manager:reset
+```
+保留 Clawdbot 数据（仅清理 manager 相关）：
+```bash
+pnpm manager:reset -- --keep-clawdbot
+```
+
 快速启动网关：
 ```bash
 pnpm manager:quickstart

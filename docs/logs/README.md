@@ -37,6 +37,8 @@
 - `docs/logs/v0.0.35-dev-docs-scenarios/README.md`
 - `docs/logs/v0.0.36-dev-docs-validation/README.md`
 - `docs/logs/v0.0.37-dev-docs-local-install/README.md`
+- `docs/logs/v0.0.38-reset-command/README.md`
+- `docs/logs/v0.0.39-dev-docs-reset-flow/README.md`
 
 ## 写日志的标准
 

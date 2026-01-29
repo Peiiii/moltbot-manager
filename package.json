@@ -17,6 +17,7 @@
     "manager:verify": "node scripts/manager-cli.mjs verify",
     "manager:ps": "node scripts/manager-cli.mjs ps",
     "manager:stop-all": "node scripts/manager-cli.mjs stop-all",
+    "manager:reset": "node scripts/manager-cli.mjs reset",
     "manager:sandbox-stop": "node scripts/manager-cli.mjs sandbox-stop",
     "manager:apply": "node scripts/manager-cli.mjs apply",
     "manager:login": "node scripts/manager-cli.mjs login",

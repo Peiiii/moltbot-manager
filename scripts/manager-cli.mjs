@@ -49,6 +49,15 @@ try {
     process.exit(0);
   }
 
+  if (cmd === "reset") {
+    const result = resetEnvironment({ flags, config });
+    for (const line of result.messages) {
+      console.log(line);
+    }
+    if (!result.ok) throw new Error(result.error ?? "reset failed");
+    process.exit(0);
+  }
+
   if (cmd === "sandbox") {
     const result = await createSandbox({ flags, nonInteractive });
     printSandboxSummary(result, { printEnv: Boolean(flags["print-env"]) });
@@ -581,6 +590,7 @@ Commands:
   status                  Show status snapshot
   ps                      Show running manager/gateway instances
   stop-all                Stop manager, sandboxes, and gateway processes
+  reset                   Stop services and clear local data for re-validation
   sandbox                 Prepare an isolated sandbox for quick validation
   verify                  One-shot sandbox + apply for quick validation
   sandbox-stop            Stop sandbox API process
@@ -608,6 +618,9 @@ Flags:
   --no-manager            Skip stopping manager (stop-all only)
   --no-sandboxes          Skip stopping sandboxes (stop-all only)
   --no-gateway            Skip stopping gateway processes (stop-all only)
+  --keep-clawdbot         Keep ~/.clawdbot data (reset only)
+  --no-stop               Skip stopping services (reset only)
+  --force                 Allow removing non-default paths (reset only)
   --dir <path>            Sandbox directory (sandbox only)
   --gateway-port <port>   Sandbox gateway port (sandbox only)
   --no-start              Do not start API server (sandbox only)
@@ -1126,6 +1139,98 @@ function stopAll(params) {
     return { ok: false, error: errors.join("; "), messages };
   }
   return { ok: true, messages };
+}
+
+function resetEnvironment(params) {
+  const dryRun = params.flags["dry-run"] === true;
+  const keepClawdbot = params.flags["keep-clawdbot"] === true;
+  const skipStop = params.flags["no-stop"] === true;
+  const force = params.flags.force === true;
+  const messages = [];
+  const errors = [];
+
+  if (!skipStop) {
+    const stopResult = stopAll({ flags: params.flags, config: params.config });
+    for (const line of stopResult.messages) {
+      messages.push(line);
+    }
+    if (!stopResult.ok) {
+      messages.push(`warn: stop-all failed (${stopResult.error ?? "unknown"})`);
+    }
+  }
+
+  const configDir = resolveConfigDir(params.flags);
+  const installDir = resolveInstallDir(params.flags);
+  const clawdbotDir = resolveClawdbotDir(params.flags);
+  const sandboxDirs = listSandboxInstances().map((entry) => entry.rootDir);
+
+  const targets = [
+    { label: "config", path: configDir },
+    { label: "install", path: installDir },
+    ...sandboxDirs.map((dir) => ({ label: "sandbox", path: dir }))
+  ];
+  if (!keepClawdbot) {
+    targets.push({ label: "clawdbot", path: clawdbotDir });
+  }
+
+  const removed = [];
+  for (const target of targets) {
+    if (!target.path) continue;
+    const resolved = path.resolve(target.path);
+    const safe = isSafeResetPath(resolved);
+    const expected = isExpectedResetPath(resolved);
+    if (!safe) {
+      errors.push(`refuse remove unsafe path (${resolved})`);
+      continue;
+    }
+    if (!expected && !force) {
+      errors.push(`refuse remove ${resolved} (use --force)`);
+      continue;
+    }
+    if (dryRun) {
+      messages.push(`[dry-run] ${target.label}: remove ${resolved}`);
+      continue;
+    }
+    if (!fs.existsSync(resolved)) {
+      messages.push(`${target.label}: not found (${resolved})`);
+      continue;
+    }
+    try {
+      fs.rmSync(resolved, { recursive: true, force: true });
+      removed.push(`${target.label}: removed (${resolved})`);
+    } catch (err) {
+      errors.push(`${target.label}: failed to remove (${resolved}): ${String(err)}`);
+    }
+  }
+
+  messages.push(...removed);
+  if (errors.length) {
+    return { ok: false, error: errors.join("; "), messages };
+  }
+  return { ok: true, messages };
+}
+
+function resolveClawdbotDir(flags) {
+  const value = flags["clawdbot-dir"] ?? process.env.CLAWDBOT_DIR;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return path.join(os.homedir(), ".clawdbot");
+}
+
+function isSafeResetPath(resolved) {
+  if (!resolved) return false;
+  const blocked = new Set([path.resolve("/"), path.resolve(os.homedir()), path.resolve(os.tmpdir())]);
+  if (blocked.has(path.resolve(resolved))) return false;
+  return true;
+}
+
+function isExpectedResetPath(resolved) {
+  const normalized = resolved.replace(/\\/g, "/");
+  return (
+    normalized.includes("/clawdbot-manager") ||
+    normalized.includes("/.clawdbot-manager") ||
+    normalized.includes("/.clawdbot") ||
+    normalized.endsWith("/clawdbot-manager")
+  );
 }
 
 function getListeningPids(ports) {

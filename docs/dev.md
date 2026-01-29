@@ -105,6 +105,19 @@ pnpm deploy:pages
 MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash scripts/install.sh
 ```
 
+建议在验证前清理历史数据：
+
+```bash
+pnpm manager:reset
+```
+
+推荐顺序（完整清理后再安装）：
+
+```bash
+pnpm manager:reset
+MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash scripts/install.sh
+```
+
 ## 场景 5：贡献协作流程
 
 目标：保证协作一致性与可追溯性。
