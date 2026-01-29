@@ -25,6 +25,7 @@
 - `docs/logs/v0.0.23-readme-install-links/README.md`
 - `docs/logs/v0.0.24-sandbox-cli/README.md`
 - `docs/logs/v0.0.25-sandbox-verify/README.md`
+- `docs/logs/v0.0.26-stream-fallback/README.md`
 
 ## 写日志的标准
 

@@ -387,7 +387,9 @@ async function runJob(url, payload, authHeader) {
     throw new Error(res.error ?? "job create failed");
   }
   const base = url.replace(/\/api\/jobs\/.+$/, "");
-  await streamJob(`${base}/api/jobs/${res.jobId}/stream`, authHeader);
+  const streamUrl = `${base}/api/jobs/${res.jobId}/stream`;
+  const statusUrl = `${base}/api/jobs/${res.jobId}`;
+  await streamJobWithFallback(streamUrl, statusUrl, authHeader);
 }
 
 function resolveGatewayOverrides(flags, config) {
@@ -498,6 +500,55 @@ async function streamJob(url, authHeader) {
   if (failed) {
     throw new Error("job failed");
   }
+}
+
+async function streamJobWithFallback(streamUrl, statusUrl, authHeader) {
+  try {
+    await streamJob(streamUrl, authHeader);
+    return;
+  } catch (err) {
+    const message = formatError(err);
+    if (!message.includes("stream failed: 404")) throw err;
+  }
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    await sleep(300);
+    try {
+      await streamJob(streamUrl, authHeader);
+      return;
+    } catch (err) {
+      const message = formatError(err);
+      if (!message.includes("stream failed: 404")) throw err;
+    }
+  }
+
+  await pollJobStatus(statusUrl, authHeader, { timeoutMs: 60_000, intervalMs: 1000 });
+}
+
+async function pollJobStatus(statusUrl, authHeader, options) {
+  const deadline = Date.now() + options.timeoutMs;
+  let offset = 0;
+  while (Date.now() < deadline) {
+    const data = await requestJson("GET", statusUrl, null, authHeader);
+    if (!data.ok || !data.job) {
+      throw new Error(data.error ?? "job status failed");
+    }
+    const job = data.job;
+    const logs = Array.isArray(job.logs) ? job.logs : [];
+    for (let i = offset; i < logs.length; i += 1) {
+      console.log(logs[i]);
+    }
+    offset = logs.length;
+    if (job.status === "failed") {
+      throw new Error(job.error ?? "job failed");
+    }
+    if (job.status === "success") {
+      console.log("done");
+      return;
+    }
+    await sleep(options.intervalMs);
+  }
+  throw new Error("job poll timeout");
 }
 
 function formatError(err) {
