@@ -21,6 +21,7 @@
 - `docs/logs/v0.0.19-frontend-install-guide/README.md`
 - `docs/logs/v0.0.20-install-tty-prompt/README.md`
 - `docs/logs/v0.0.21-install-open-url/README.md`
+- `docs/logs/v0.0.22-cli-server-stop/README.md`
 
 ## 写日志的标准
 

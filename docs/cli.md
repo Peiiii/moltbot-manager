@@ -145,6 +145,11 @@ pnpm manager:quickstart
 pnpm manager:gateway-stop
 ```
 
+停止管理服务（Manager API）：
+```bash
+pnpm manager:server-stop
+```
+
 执行通道探测：
 ```bash
 pnpm manager:probe

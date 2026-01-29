@@ -61,3 +61,4 @@ iwr https://clawdbot-manager.pages.dev/install.ps1 -UseBasicParsing | iex
 
 - 打不开页面：确认 `MANAGER_API_PORT` 端口已放行且服务已启动
 - 忘记管理员账号：请重新运行安装脚本并设置新的管理员账号
+- 需要停止服务：在安装目录执行 `pnpm manager:server-stop`（需要本机权限）

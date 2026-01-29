@@ -123,6 +123,7 @@ SERVICE
   echo "[manager] Service started."
 else
   LOG_PATH="${MANAGER_LOG_PATH:-/tmp/clawdbot-manager.log}"
+  PID_FILE="$CONFIG_DIR/manager.pid"
   nohup env \
     MANAGER_API_HOST="$MANAGER_API_HOST" \
     MANAGER_API_PORT="$MANAGER_API_PORT" \
@@ -130,7 +131,9 @@ else
     MANAGER_CONFIG_PATH="$CONFIG_DIR/config.json" \
     node "$INSTALL_DIR/apps/api/dist/index.js" \
     > "$LOG_PATH" 2>&1 &
+  echo $! > "$PID_FILE"
   echo "[manager] Started in background (log: $LOG_PATH)."
+  echo "[manager] PID saved to $PID_FILE."
 fi
 
 HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || true)

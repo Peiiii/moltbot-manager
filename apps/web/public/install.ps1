@@ -74,11 +74,25 @@ node apps/api/scripts/create-admin.mjs `
 $logPath = if ($env:MANAGER_LOG_PATH) { $env:MANAGER_LOG_PATH } else { Join-Path $env:TEMP "clawdbot-manager.log" }
 $webDist = Join-Path $installDir "apps/web/dist"
 $configPath = Join-Path $configDir "config.json"
+$pidPath = Join-Path $configDir "manager.pid"
 
-$cmdLine = "set MANAGER_API_HOST=$apiHost&& set MANAGER_API_PORT=$apiPort&& set MANAGER_WEB_DIST=$webDist&& set MANAGER_CONFIG_PATH=$configPath&& node $installDir\\apps\\api\\dist\\index.js > `"$logPath`" 2>&1"
-Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $cmdLine -WorkingDirectory $installDir -WindowStyle Hidden | Out-Null
+$env:MANAGER_API_HOST = $apiHost
+$env:MANAGER_API_PORT = $apiPort
+$env:MANAGER_WEB_DIST = $webDist
+$env:MANAGER_CONFIG_PATH = $configPath
+
+$proc = Start-Process -FilePath "node" `
+  -ArgumentList "$installDir\\apps\\api\\dist\\index.js" `
+  -WorkingDirectory $installDir `
+  -WindowStyle Hidden `
+  -RedirectStandardOutput $logPath `
+  -RedirectStandardError $logPath `
+  -PassThru
+
+$proc.Id | Out-File -Encoding ascii $pidPath
 
 Write-Host "[manager] Started in background (log: $logPath)."
+Write-Host "[manager] PID saved to $pidPath."
 Write-Host "[manager] Open (local): http://localhost:$apiPort"
 Write-Host "[manager] Open (local): http://127.0.0.1:$apiPort"
 Write-Host "[manager] Open (LAN): http://<your-server-ip>:$apiPort"

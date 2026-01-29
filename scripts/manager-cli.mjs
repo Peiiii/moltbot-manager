@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import process from "node:process";
 
 const args = process.argv.slice(2);
@@ -195,6 +199,13 @@ try {
     );
     if (!data.ok) throw new Error(data.error ?? "gateway stop failed");
     console.log(`gateway stop requested (${id})`);
+    process.exit(0);
+  }
+
+  if (cmd === "server-stop") {
+    const result = stopManagerService({ flags });
+    if (!result.ok) throw new Error(result.error ?? "server stop failed");
+    console.log(result.message);
     process.exit(0);
   }
 
@@ -492,6 +503,7 @@ Commands:
   pairing-wait            Wait for a pairing request and approve
   gateway-start           Start gateway process
   gateway-stop            Stop gateway process
+  server-stop             Stop manager API service
 
 Common flags:
   --api <base>            API base (default: http://127.0.0.1:17321)
@@ -499,6 +511,10 @@ Common flags:
   --user <user>           Auth username (or MANAGER_AUTH_USER)
   --pass <pass>           Auth password (or MANAGER_AUTH_PASS)
   --non-interactive       Disable prompts (or MANAGER_NON_INTERACTIVE=1)
+  --config-dir <path>     Service config directory (server-stop only)
+  --install-dir <path>    Service install directory (server-stop only)
+  --pid-file <path>       PID file path (server-stop only)
+  --api-port <port>       Service port (server-stop only)
 `);
 }
 
@@ -651,6 +667,117 @@ function parseNumberFlag(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return Math.floor(parsed);
+}
+
+function stopManagerService(params) {
+  const configDir = resolveConfigDir(params.flags);
+  const installDir = resolveInstallDir(params.flags);
+  const pidFile = resolvePidFile(params.flags, configDir);
+  const apiPort = resolveApiPort(params.flags);
+
+  if (trySystemdStop()) {
+    return { ok: true, message: "server stop requested (systemd)" };
+  }
+
+  const pidStopped = tryStopPidFile(pidFile);
+  if (pidStopped) {
+    return { ok: true, message: `server stop requested (pid ${pidStopped})` };
+  }
+
+  const pgrepStopped = tryStopByPgrep(installDir);
+  if (pgrepStopped.length) {
+    return { ok: true, message: `server stop requested (pids ${pgrepStopped.join(", ")})` };
+  }
+
+  const portStopped = tryStopByPort(apiPort);
+  if (portStopped.length) {
+    return {
+      ok: true,
+      message: `server stop requested (port ${apiPort}, pids ${portStopped.join(", ")})`
+    };
+  }
+
+  return { ok: false, error: "no running server process found" };
+}
+
+function resolveConfigDir(flags) {
+  const value = flags["config-dir"] ?? process.env.MANAGER_CONFIG_DIR;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  const isRoot = typeof process.getuid === "function" && process.getuid() === 0;
+  return isRoot ? "/etc/clawdbot-manager" : path.join(os.homedir(), ".clawdbot-manager");
+}
+
+function resolveInstallDir(flags) {
+  const value = flags["install-dir"] ?? process.env.MANAGER_INSTALL_DIR;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  const isRoot = typeof process.getuid === "function" && process.getuid() === 0;
+  return isRoot ? "/opt/clawdbot-manager" : path.join(os.homedir(), "clawdbot-manager");
+}
+
+function resolvePidFile(flags, configDir) {
+  const value = flags["pid-file"] ?? process.env.MANAGER_PID_FILE;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return path.join(configDir, "manager.pid");
+}
+
+function resolveApiPort(flags) {
+  const raw = flags["api-port"] ?? process.env.MANAGER_API_PORT ?? "17321";
+  return parseNumberFlag(raw) ?? 17321;
+}
+
+function trySystemdStop() {
+  if (process.platform !== "linux") return false;
+  const servicePath = "/etc/systemd/system/clawdbot-manager.service";
+  if (!fs.existsSync(servicePath)) return false;
+  const result = spawnSync("systemctl", ["stop", "clawdbot-manager"], { stdio: "ignore" });
+  return result.status === 0 && !result.error;
+}
+
+function tryStopPidFile(pidFile) {
+  if (!fs.existsSync(pidFile)) return null;
+  const raw = fs.readFileSync(pidFile, "utf-8").trim();
+  const pid = Number(raw);
+  if (!Number.isFinite(pid) || pid <= 0) return null;
+  try {
+    process.kill(pid, "SIGTERM");
+    fs.unlinkSync(pidFile);
+    return pid;
+  } catch {
+    return null;
+  }
+}
+
+function tryStopByPgrep(installDir) {
+  const match = path.join(installDir, "apps", "api", "dist", "index.js");
+  const result = spawnSync("pgrep", ["-f", match], { encoding: "utf-8" });
+  if (result.error || result.status !== 0) return [];
+  return killPidList(result.stdout);
+}
+
+function tryStopByPort(port) {
+  const result = spawnSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], {
+    encoding: "utf-8"
+  });
+  if (result.error || result.status !== 0) return [];
+  return killPidList(result.stdout);
+}
+
+function killPidList(output) {
+  const list = output
+    .split(/\s+/)
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  if (!list.length) return [];
+  const stopped = [];
+  for (const pid of list) {
+    try {
+      process.kill(pid, "SIGTERM");
+      stopped.push(pid);
+    } catch {
+      // ignore and continue
+    }
+  }
+  return stopped;
 }
 
 async function loadTomlConfig(configPath) {

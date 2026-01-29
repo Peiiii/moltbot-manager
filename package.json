@@ -24,6 +24,7 @@
     "manager:pairing-wait": "node scripts/manager-cli.mjs pairing-wait",
     "manager:gateway-start": "node scripts/manager-cli.mjs gateway-start",
     "manager:gateway-stop": "node scripts/manager-cli.mjs gateway-stop",
+    "manager:server-stop": "node scripts/manager-cli.mjs server-stop",
     "build": "pnpm -r --if-present build",
     "lint": "pnpm -r --if-present lint",
     "deploy:pages": "pnpm --filter clawdbot-manager-web deploy:pages"
