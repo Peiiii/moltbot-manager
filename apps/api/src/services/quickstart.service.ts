@@ -34,12 +34,18 @@ export async function runQuickstart(
   let gatewayReady = false;
   let probeOk: boolean | undefined;
   const gatewayTimeoutMs = parsePositiveInt(process.env.MANAGER_GATEWAY_TIMEOUT_MS) ?? 20_000;
+  log?.(
+    `网关参数: host=${gatewayHost} port=${gatewayPort} timeout=${gatewayTimeoutMs}ms`
+  );
 
   log?.("检查 CLI 环境...");
   const cli = await getCliStatus(deps.runCommand);
   if (!cli.installed) {
     log?.("未检测到 CLI。");
     return { ok: false, error: "clawdbot CLI not installed", status: 400 };
+  }
+  if (cli.path) {
+    log?.(`CLI 路径: ${cli.path}`);
   }
   if (cli.version) {
     log?.(`CLI 版本: ${cli.version}`);
@@ -66,6 +72,7 @@ export async function runQuickstart(
     ];
 
     log?.("启动网关中...");
+    log?.(`启动命令: clawdbot ${gatewayArgs.join(" ")}`);
     const started = deps.processManager.startProcess("gateway-run", {
       args: gatewayArgs,
       onLog: (line) => log?.(`[gateway] ${line}`)
@@ -90,6 +97,12 @@ export async function runQuickstart(
     gatewayReady = await waitForGateway(gatewayHost, gatewayPort, gatewayTimeoutMs);
     if (!gatewayReady) {
       log?.("网关启动超时。");
+      const probe = await checkGateway(gatewayHost, gatewayPort);
+      log?.(
+        `网关探测结果: ok=${probe.ok} error=${probe.error ?? "none"} latency=${
+          probe.latencyMs ?? "n/a"
+        }ms`
+      );
       const snapshot = deps.processManager
         .listProcesses()
         .find((process) => process.id === "gateway-run");
@@ -102,6 +115,14 @@ export async function runQuickstart(
       if (snapshot && snapshot.exitCode !== null) {
         log?.(`网关进程已退出，exit code: ${snapshot.exitCode}`);
       }
+      if (snapshot) {
+        log?.(
+          `网关进程状态: running=${snapshot.running} pid=${snapshot.pid ?? "?"}`
+        );
+      }
+      log?.(
+        `排查建议: 确认端口 ${gatewayPort} 未被占用，或执行 clawdbot logs --follow 查看网关日志。`
+      );
       return { ok: false, error: "gateway not ready", status: 504 };
     }
     log?.("网关已就绪。");
@@ -109,7 +130,13 @@ export async function runQuickstart(
     log?.("检查网关状态...");
     const snapshot = await checkGateway(gatewayHost, gatewayPort);
     gatewayReady = snapshot.ok;
-    log?.(gatewayReady ? "网关已就绪。" : "网关未就绪。");
+    if (!gatewayReady) {
+      log?.(
+        `网关未就绪: error=${snapshot.error ?? "none"} latency=${snapshot.latencyMs ?? "n/a"}ms`
+      );
+    } else {
+      log?.("网关已就绪。");
+    }
   }
 
   if (runProbe) {

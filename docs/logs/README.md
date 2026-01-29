@@ -46,6 +46,7 @@
 - `docs/logs/v0.0.44-docker-public-url/README.md`
 - `docs/logs/v0.0.45-user-intent-analysis/README.md`
 - `docs/logs/v0.0.46-deploy-docs/README.md`
+- `docs/logs/v0.0.47-quickstart-logs/README.md`
 
 ## 写日志的标准
 
