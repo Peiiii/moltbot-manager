@@ -154,6 +154,11 @@ pnpm manager:pairing-approve -- --code "ABCDE123" --continue
 pnpm manager:status
 ```
 
+查看当前运行实例：
+```bash
+pnpm manager:ps
+```
+
 一键隔离验证：
 ```bash
 pnpm manager:verify
@@ -167,6 +172,15 @@ pnpm manager:sandbox -- --print-env
 停止隔离沙盒：
 ```bash
 pnpm manager:sandbox-stop -- --dir "/tmp/clawdbot-manager-sandbox-<timestamp>"
+```
+
+停止所有实例（manager + sandboxes + gateway）：
+```bash
+pnpm manager:stop-all
+```
+预览（不实际停止）：
+```bash
+pnpm manager:stop-all -- --dry-run
 ```
 
 快速启动网关：

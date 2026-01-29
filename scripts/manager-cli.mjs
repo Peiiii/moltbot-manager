@@ -34,6 +34,21 @@ try {
     process.exit(0);
   }
 
+  if (cmd === "ps") {
+    const snapshot = buildProcessSnapshot({ flags, config });
+    printProcessSnapshot(snapshot);
+    process.exit(0);
+  }
+
+  if (cmd === "stop-all") {
+    const result = stopAll({ flags, config });
+    for (const line of result.messages) {
+      console.log(line);
+    }
+    if (!result.ok) throw new Error(result.error ?? "stop-all failed");
+    process.exit(0);
+  }
+
   if (cmd === "sandbox") {
     const result = await createSandbox({ flags, nonInteractive });
     printSandboxSummary(result, { printEnv: Boolean(flags["print-env"]) });
@@ -564,6 +579,8 @@ Usage:
 
 Commands:
   status                  Show status snapshot
+  ps                      Show running manager/gateway instances
+  stop-all                Stop manager, sandboxes, and gateway processes
   sandbox                 Prepare an isolated sandbox for quick validation
   verify                  One-shot sandbox + apply for quick validation
   sandbox-stop            Stop sandbox API process
@@ -580,14 +597,18 @@ Commands:
   gateway-stop            Stop gateway process
   server-stop             Stop manager API service
 
-Common flags:
+Flags:
   --api <base>            API base (default: http://127.0.0.1:17321)
   --config <path>         TOML config path (default: manager.toml)
   --user <user>           Auth username (or MANAGER_AUTH_USER)
   --pass <pass>           Auth password (or MANAGER_AUTH_PASS)
   --non-interactive       Disable prompts (or MANAGER_NON_INTERACTIVE=1)
+  --api-port <port>       API port override (sandbox/ps/server-stop)
+  --dry-run               Print stop-all targets without stopping (stop-all only)
+  --no-manager            Skip stopping manager (stop-all only)
+  --no-sandboxes          Skip stopping sandboxes (stop-all only)
+  --no-gateway            Skip stopping gateway processes (stop-all only)
   --dir <path>            Sandbox directory (sandbox only)
-  --api-port <port>       Sandbox API port (sandbox only)
   --gateway-port <port>   Sandbox gateway port (sandbox only)
   --no-start              Do not start API server (sandbox only)
   --print-env             Print export statements (sandbox only)
@@ -597,7 +618,6 @@ Common flags:
   --config-dir <path>     Service config directory (server-stop only)
   --install-dir <path>    Service install directory (server-stop only)
   --pid-file <path>       PID file path (server-stop only)
-  --api-port <port>       Service port (server-stop only)
 `);
 }
 
@@ -748,6 +768,393 @@ function mergeSandboxConfig(base, extra) {
   return merged;
 }
 
+function buildProcessSnapshot(params) {
+  const managerPort = resolveApiPort(params.flags);
+  const managerPidFile = resolvePidFile(params.flags, resolveConfigDir(params.flags));
+  const managerPid = readPidFile(managerPidFile);
+  const managerListening = getListeningPids([managerPort]);
+  const systemdActive = readSystemdStatus();
+  const sandboxes = listSandboxInstances();
+  const gatewayPorts = [
+    parseNumberFlag(process.env.CLAWDBOT_GATEWAY_PORT) ?? 18789,
+    ...sandboxes
+      .map((entry) => entry.gatewayPort)
+      .filter((value) => typeof value === "number")
+  ];
+  const gatewayListening = getListeningPids(gatewayPorts);
+  const gatewayProcesses = listGatewayProcesses();
+
+  return {
+    manager: {
+      port: managerPort,
+      pidFile: managerPidFile,
+      pid: managerPid,
+      listeningPids: managerListening,
+      systemdActive
+    },
+    sandboxes,
+    gateway: {
+      listeningPids: gatewayListening,
+      processes: gatewayProcesses
+    }
+  };
+}
+
+function printProcessSnapshot(snapshot) {
+  const manager = snapshot.manager;
+  console.log("[manager]");
+  console.log(`  api: http://127.0.0.1:${manager.port}`);
+  if (manager.systemdActive) {
+    console.log(`  systemd: ${manager.systemdActive}`);
+  }
+  if (manager.pid) {
+    console.log(`  pid: ${manager.pid} (${manager.pidFile})`);
+  } else {
+    console.log(`  pid: not found (${manager.pidFile})`);
+  }
+  console.log(`  listening pids: ${formatPidList(manager.listeningPids)}`);
+
+  console.log("");
+  if (snapshot.sandboxes.length) {
+    console.log(`[sandbox] count: ${snapshot.sandboxes.length}`);
+    for (const entry of snapshot.sandboxes) {
+      const status = entry.pid && isPidRunning(entry.pid) ? "running" : "stopped";
+      console.log(
+        `  - ${status} pid=${entry.pid ?? "?"} api=${entry.apiBase || "?"} dir=${entry.rootDir}`
+      );
+    }
+  } else {
+    console.log("[sandbox] none");
+  }
+
+  console.log("");
+  if (snapshot.gateway.processes.length) {
+    console.log(`[gateway] count: ${snapshot.gateway.processes.length}`);
+    const rows = snapshot.gateway.processes.map(parseGatewayProcessLine);
+    const table = formatTable(
+      ["pid", "port", "source", "label"],
+      rows.map((row) => [
+        row.pid ?? "?",
+        row.port ?? "-",
+        row.source,
+        row.label || "-"
+      ])
+    );
+    for (const line of table) console.log(`  ${line}`);
+  } else {
+    console.log("[gateway] process: none");
+  }
+  console.log(`  listening pids: ${formatPidList(snapshot.gateway.listeningPids)}`);
+}
+
+function listSandboxInstances() {
+  const dir = os.tmpdir();
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith("clawdbot-manager-sandbox-"))
+    .map((entry) => {
+      const rootDir = path.join(dir, entry.name);
+      const metaPath = path.join(rootDir, "sandbox.json");
+      const pidPath = path.join(rootDir, "manager-api.pid");
+      const pid = readPidFile(pidPath);
+      let apiBase = "";
+      let gatewayPort = null;
+      if (fs.existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+          apiBase = typeof meta.apiBase === "string" ? meta.apiBase : "";
+          gatewayPort = typeof meta.gatewayPort === "number" ? meta.gatewayPort : null;
+        } catch {
+          // ignore
+        }
+      }
+      return {
+        rootDir,
+        apiBase,
+        pid,
+        gatewayPort
+      };
+    })
+    .sort((a, b) => a.rootDir.localeCompare(b.rootDir));
+}
+
+function readPidFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, "utf-8").trim();
+    const pid = Number(raw);
+    if (!Number.isFinite(pid) || pid <= 0) return null;
+    return pid;
+  } catch {
+    return null;
+  }
+}
+
+function isPidRunning(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function listGatewayProcesses() {
+  if (process.platform === "win32") return [];
+  const result = spawnSync("pgrep", ["-fl", "clawdbot-gateway"], { encoding: "utf-8" });
+  if (result.error || result.status !== 0) return [];
+  return result.stdout
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function parseGatewayProcessLine(line) {
+  const tokens = line.split(/\s+/);
+  const pid = Number(tokens[0]);
+  const portMatch = line.match(/CLAWDBOT_GATEWAY_PORT=(\d+)/);
+  const labelMatch = line.match(/CLAWDBOT_LAUNCHD_LABEL=([^\s]+)/);
+  const source = line.includes("VSCODE_PROCESS_TITLE=extension-host")
+    ? "vscode"
+    : labelMatch
+    ? "launchd"
+    : "unknown";
+  return {
+    pid: Number.isFinite(pid) && pid > 0 ? pid : null,
+    port: portMatch ? portMatch[1] : null,
+    label: labelMatch ? labelMatch[1] : "",
+    source
+  };
+}
+
+function stopGatewayProcesses() {
+  if (process.platform === "win32") {
+    return { ok: true, message: "gateway: skipped (unsupported platform)" };
+  }
+  const lines = listGatewayProcesses();
+  if (!lines.length) return { ok: true, message: "gateway: none" };
+  const pids = new Set();
+  const labels = new Set();
+  for (const line of lines) {
+    const parsed = parseGatewayProcessLine(line);
+    if (parsed.pid) pids.add(parsed.pid);
+    if (parsed.label) labels.add(parsed.label);
+  }
+  if (!pids.size) return { ok: true, message: "gateway: none" };
+  const launchdResult = stopLaunchdLabels(labels);
+  const failures = [];
+  for (const pid of pids) {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch (err) {
+      if (!(err && typeof err === "object" && err.code === "ESRCH")) {
+        failures.push(`pid ${pid}: ${String(err)}`);
+      }
+    }
+  }
+  const message = `gateway: stop requested (pids ${Array.from(pids).join(", ")})`;
+  if (launchdResult.messages.length) {
+    for (const line of launchdResult.messages) {
+      console.log(line);
+    }
+  }
+  const remaining = waitForGatewayStop(2000, 200);
+  if (remaining.length) {
+    const remainingPids = remaining
+      .map(parseGatewayProcessLine)
+      .map((entry) => entry.pid)
+      .filter((pid) => Number.isFinite(pid))
+      .join(", ");
+    failures.push(`still running (pids ${remainingPids || "unknown"})`);
+  }
+  if (failures.length || launchdResult.errors.length) {
+    const errorParts = [...launchdResult.errors, ...failures];
+    return { ok: false, error: `gateway stop failed (${errorParts.join("; ")})`, message };
+  }
+  return { ok: true, message };
+}
+
+function stopLaunchdLabels(labels) {
+  const messages = [];
+  const errors = [];
+  if (!labels.size) return { messages, errors };
+  if (process.platform !== "darwin") {
+    messages.push("launchd: skipped (not macOS)");
+    return { messages, errors };
+  }
+  if (typeof process.getuid !== "function") {
+    errors.push("launchd: missing uid");
+    return { messages, errors };
+  }
+  const uid = process.getuid();
+  for (const label of labels) {
+    const target = `gui/${uid}/${label}`;
+    const result = spawnSync("launchctl", ["bootout", target], { encoding: "utf-8" });
+    if (result.error || result.status !== 0) {
+      const detail = result.stderr?.trim() || result.stdout?.trim() || "unknown";
+      errors.push(`launchd bootout ${label} failed (${detail})`);
+    } else {
+      messages.push(`launchd: bootout ${label}`);
+    }
+  }
+  return { messages, errors };
+}
+
+function waitForGatewayStop(timeoutMs, intervalMs) {
+  const deadline = Date.now() + timeoutMs;
+  let remaining = listGatewayProcesses();
+  while (remaining.length && Date.now() < deadline) {
+    sleepSync(intervalMs);
+    remaining = listGatewayProcesses();
+  }
+  return remaining;
+}
+
+function formatTable(headers, rows) {
+  const widths = headers.map((header, i) =>
+    Math.max(
+      header.length,
+      ...rows.map((row) => String(row[i] ?? "").length)
+    )
+  );
+  const lines = [];
+  lines.push(headers.map((header, i) => header.padEnd(widths[i])).join("  "));
+  lines.push(headers.map((_, i) => "-".repeat(widths[i])).join("  "));
+  for (const row of rows) {
+    lines.push(row.map((cell, i) => String(cell ?? "").padEnd(widths[i])).join("  "));
+  }
+  return lines;
+}
+
+function formatPidList(pids) {
+  return pids.length ? pids.join(", ") : "none";
+}
+
+function sleepSync(ms) {
+  const shared = new Int32Array(new SharedArrayBuffer(4));
+  Atomics.wait(shared, 0, 0, ms);
+}
+
+function stopAll(params) {
+  const dryRun = params.flags["dry-run"] === true;
+  const stopManager = params.flags.manager !== false;
+  const stopSandboxes = params.flags.sandboxes !== false;
+  const stopGateway = params.flags.gateway !== false;
+  const messages = [];
+  const errors = [];
+  const snapshot = buildProcessSnapshot({ flags: params.flags, config: params.config });
+
+  if (dryRun) {
+    messages.push(`[dry-run] stop-all`);
+    if (stopManager) {
+      messages.push(
+        `manager: would stop (pid ${snapshot.manager.pid ?? "?"}, port ${snapshot.manager.port})`
+      );
+    } else {
+      messages.push("manager: skipped");
+    }
+    if (stopSandboxes) {
+      if (!snapshot.sandboxes.length) {
+        messages.push("sandbox: none");
+      } else {
+        for (const entry of snapshot.sandboxes) {
+          messages.push(`sandbox: would stop (${entry.rootDir})`);
+        }
+      }
+    } else {
+      messages.push("sandbox: skipped");
+    }
+    if (stopGateway) {
+      const pids = snapshot.gateway.processes
+        .map(parseGatewayProcessLine)
+        .map((entry) => entry.pid)
+        .filter((pid) => Number.isFinite(pid));
+      messages.push(`gateway: would stop (${pids.length ? pids.join(", ") : "none"})`);
+    } else {
+      messages.push("gateway: skipped");
+    }
+    return { ok: true, messages };
+  }
+
+  if (stopManager) {
+    const result = stopManagerService({ flags: params.flags });
+    if (result.ok) {
+      messages.push(`manager: ${result.message}`);
+    } else if (result.error === "no running server process found") {
+      messages.push("manager: not running");
+    } else {
+      errors.push(`manager: ${result.error ?? "stop failed"}`);
+    }
+  } else {
+    messages.push("manager: skipped");
+  }
+
+  if (stopSandboxes) {
+    if (!snapshot.sandboxes.length) {
+      messages.push("sandbox: none");
+    }
+    for (const entry of snapshot.sandboxes) {
+      const result = stopSandboxDir(entry.rootDir, { allowMissing: true });
+      if (result.ok) {
+        messages.push(`sandbox: ${result.message}`);
+      } else {
+        errors.push(`sandbox: ${result.error ?? "stop failed"}`);
+      }
+    }
+  } else {
+    messages.push("sandbox: skipped");
+  }
+
+  if (stopGateway) {
+    const result = stopGatewayProcesses();
+    if (result.ok) {
+      messages.push(result.message);
+    } else {
+      messages.push(result.message);
+      errors.push(result.error ?? "gateway stop failed");
+    }
+  } else {
+    messages.push("gateway: skipped");
+  }
+
+  if (errors.length) {
+    return { ok: false, error: errors.join("; "), messages };
+  }
+  return { ok: true, messages };
+}
+
+function getListeningPids(ports) {
+  const pids = new Set();
+  for (const port of ports) {
+    if (!port || !Number.isFinite(port)) continue;
+    const result = spawnSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], {
+      encoding: "utf-8"
+    });
+    if (result.error || result.status !== 0) continue;
+    for (const line of result.stdout.split(/\s+/)) {
+      const pid = Number(line);
+      if (Number.isFinite(pid) && pid > 0) pids.add(pid);
+    }
+  }
+  return Array.from(pids);
+}
+
+function readSystemdStatus() {
+  if (process.platform !== "linux") return "";
+  const servicePath = "/etc/systemd/system/clawdbot-manager.service";
+  if (!fs.existsSync(servicePath)) return "";
+  const result = spawnSync("systemctl", ["is-active", "clawdbot-manager"], {
+    encoding: "utf-8"
+  });
+  if (result.error || result.status !== 0) return "inactive";
+  return result.stdout.trim() || "active";
+}
+
 async function createSandbox(params) {
   const rootDir = resolveSandboxDir(params.flags);
   const reuse = Boolean(params.flags.reuse);
@@ -860,21 +1267,43 @@ function stopSandbox(params) {
   if (!rootDir) {
     return { ok: false, error: "missing --dir (sandbox directory)" };
   }
+  return stopSandboxDir(rootDir, { clean: params.flags.clean === true });
+}
+
+function stopSandboxDir(rootDir, options) {
+  const opts = options ?? {};
   const pidFile = path.join(rootDir, "manager-api.pid");
   if (!fs.existsSync(pidFile)) {
+    if (opts.clean) {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      return { ok: true, message: `sandbox removed (${rootDir})` };
+    }
+    if (opts.allowMissing) {
+      return { ok: true, message: `sandbox already stopped (${rootDir})` };
+    }
     return { ok: false, error: `pid file not found: ${pidFile}` };
   }
   const raw = fs.readFileSync(pidFile, "utf-8").trim();
   const pid = Number(raw);
   if (!Number.isFinite(pid) || pid <= 0) {
+    if (opts.clean) {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+      return { ok: true, message: `sandbox removed (${rootDir})` };
+    }
+    if (opts.allowMissing) {
+      return { ok: true, message: `sandbox pid invalid (${rootDir})` };
+    }
     return { ok: false, error: `invalid pid in ${pidFile}` };
   }
   try {
     process.kill(pid, "SIGTERM");
   } catch (err) {
+    if (err && typeof err === "object" && err.code === "ESRCH" && opts.allowMissing) {
+      return { ok: true, message: `sandbox already stopped (${rootDir})` };
+    }
     return { ok: false, error: `failed to stop pid ${pid}: ${String(err)}` };
   }
-  if (params.flags.clean === true) {
+  if (opts.clean) {
     fs.rmSync(rootDir, { recursive: true, force: true });
     return { ok: true, message: `sandbox stopped and removed (${rootDir})` };
   }

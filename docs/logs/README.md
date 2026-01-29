@@ -26,6 +26,11 @@
 - `docs/logs/v0.0.24-sandbox-cli/README.md`
 - `docs/logs/v0.0.25-sandbox-verify/README.md`
 - `docs/logs/v0.0.26-stream-fallback/README.md`
+- `docs/logs/v0.0.27-manager-ps/README.md`
+- `docs/logs/v0.0.28-ps-output/README.md`
+- `docs/logs/v0.0.29-stop-all/README.md`
+- `docs/logs/v0.0.30-stop-all-launchd/README.md`
+- `docs/logs/v0.0.31-stop-all-retry/README.md`
 
 ## 写日志的标准
 
