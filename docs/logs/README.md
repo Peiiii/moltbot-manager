@@ -52,6 +52,8 @@
 - `docs/logs/v0.0.50-dev-docs-local-docker/README.md`
 - `docs/logs/v0.0.51-docker-timeout-env/README.md`
 - `docs/logs/v0.0.52-gateway-timeout-default/README.md`
+- `docs/logs/v0.0.53-auto-deploy-default/README.md`
+- `docs/logs/v0.0.54-install-node-auto-public-url/README.md`
 
 ## 写日志的标准
 

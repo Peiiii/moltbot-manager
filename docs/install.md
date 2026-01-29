@@ -43,6 +43,7 @@ curl -fsSL https://clawdbot-manager.pages.dev/docker.sh | bash
 3) 按向导依次完成：CLI 安装、网关启动、Discord Token、AI Provider、配对、探测
 
 提示：脚本默认绑定 `MANAGER_API_HOST=0.0.0.0`，VPS 需放行 `17321` 端口；如需仅本机访问，设置 `MANAGER_API_HOST=127.0.0.1`。
+脚本在未安装 Node.js 时会询问是否自动安装（可设置 `MANAGER_AUTO_INSTALL_NODE=1` 直接同意）。
 
 ## 常用环境变量
 
@@ -51,8 +52,17 @@ Linux / macOS（示例）：
 MANAGER_ADMIN_USER=admin \
 MANAGER_ADMIN_PASS=pass \
 MANAGER_API_PORT=17321 \
+MANAGER_AUTO_INSTALL_NODE=1 \
 curl -fsSL https://clawdbot-manager.pages.dev/install.sh | bash
 ```
+
+常见变量：
+
+- `MANAGER_ADMIN_USER` / `MANAGER_ADMIN_PASS`
+- `MANAGER_API_HOST`（默认 `0.0.0.0`）
+- `MANAGER_API_PORT`（默认 `17321`）
+- `MANAGER_PUBLIC_HOST`（用于打印公网链接）
+- `MANAGER_AUTO_INSTALL_NODE=1`（无 Node 时自动安装）
 
 Windows PowerShell（示例）：
 ```powershell

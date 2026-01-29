@@ -68,6 +68,15 @@ MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash scripts/install.sh
 curl -fsSL https://clawdbot-manager.pages.dev/install.sh | MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash
 ```
 
+无交互自动安装 Node：
+
+```bash
+MANAGER_AUTO_INSTALL_NODE=1 \
+MANAGER_ADMIN_USER=admin \
+MANAGER_ADMIN_PASS=pass \
+curl -fsSL https://clawdbot-manager.pages.dev/install.sh | bash
+```
+
 ### 3) Docker 验证
 
 适合模拟 VPS 或隔离环境。

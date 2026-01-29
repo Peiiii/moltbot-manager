@@ -15,9 +15,114 @@ if ! command -v git >/dev/null 2>&1; then
   exit 1
 fi
 
+prompt_confirm() {
+  local prompt="$1"
+  if command -v gum >/dev/null 2>&1; then
+    gum confirm "$prompt"
+    return $?
+  fi
+  if [[ -t 0 ]]; then
+    read -r -p "$prompt [y/N]: " reply
+  elif [[ -r /dev/tty && -w /dev/tty ]]; then
+    read -r -p "$prompt [y/N]: " reply < /dev/tty
+  else
+    return 1
+  fi
+  case "$reply" in
+    [yY]|[yY][eE][sS]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+run_as_root() {
+  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+    "$@"
+    return $?
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    sudo -E "$@"
+    return $?
+  fi
+  echo "[manager] sudo is required to install Node.js."
+  return 1
+}
+
+get_node_major() {
+  local version
+  version="$(node -v 2>/dev/null || true)"
+  version="${version#v}"
+  echo "${version%%.*}"
+}
+
+install_node_with_nvm() {
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "[manager] curl is required to install Node.js."
+    return 1
+  fi
+  echo "[manager] Installing Node.js via nvm..."
+  curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+  export NVM_DIR="$HOME/.nvm"
+  # shellcheck disable=SC1090
+  . "$NVM_DIR/nvm.sh"
+  nvm install 22
+  nvm use 22
+}
+
+install_node() {
+  echo "[manager] Installing Node.js >= 22..."
+  if command -v apt-get >/dev/null 2>&1; then
+    if ! command -v curl >/dev/null 2>&1; then
+      run_as_root apt-get update -y
+      run_as_root apt-get install -y curl
+    fi
+    curl -fsSL https://deb.nodesource.com/setup_22.x | run_as_root bash -
+    run_as_root apt-get install -y nodejs
+    return 0
+  fi
+  if command -v dnf >/dev/null 2>&1; then
+    if ! command -v curl >/dev/null 2>&1; then
+      run_as_root dnf install -y curl
+    fi
+    curl -fsSL https://rpm.nodesource.com/setup_22.x | run_as_root bash -
+    run_as_root dnf install -y nodejs
+    return 0
+  fi
+  if command -v yum >/dev/null 2>&1; then
+    if ! command -v curl >/dev/null 2>&1; then
+      run_as_root yum install -y curl
+    fi
+    curl -fsSL https://rpm.nodesource.com/setup_22.x | run_as_root bash -
+    run_as_root yum install -y nodejs
+    return 0
+  fi
+  install_node_with_nvm
+}
+
 if ! command -v node >/dev/null 2>&1; then
   echo "[manager] Node.js >= 22 is required."
-  exit 1
+  if [[ "${MANAGER_AUTO_INSTALL_NODE:-}" == "1" ]]; then
+    install_node || exit 1
+  else
+    if prompt_confirm "Node.js not found. Install automatically?"; then
+      install_node || exit 1
+    else
+      exit 1
+    fi
+  fi
+else
+  NODE_MAJOR="$(get_node_major)"
+  if [[ -z "$NODE_MAJOR" || "$NODE_MAJOR" -lt 22 ]]; then
+    echo "[manager] Node.js >= 22 is required (current: v${NODE_MAJOR})."
+    if [[ "${MANAGER_AUTO_INSTALL_NODE:-}" == "1" ]]; then
+      install_node || exit 1
+    else
+      if prompt_confirm "Node.js version is too low. Upgrade automatically?"; then
+        install_node || exit 1
+      else
+        exit 1
+      fi
+    fi
+  fi
 fi
 
 if ! command -v pnpm >/dev/null 2>&1; then
@@ -141,6 +246,16 @@ if [[ -z "$HOST_IP" ]]; then
   HOST_IP="<your-server-ip>"
 fi
 
+PUBLIC_HOST="${MANAGER_PUBLIC_HOST:-}"
+if [[ -z "$PUBLIC_HOST" ]] && command -v curl >/dev/null 2>&1; then
+  PUBLIC_HOST="$(curl -fsS https://api.ipify.org 2>/dev/null || true)"
+fi
+
 echo "[manager] Open (local): http://localhost:$MANAGER_API_PORT"
 echo "[manager] Open (local): http://127.0.0.1:$MANAGER_API_PORT"
 echo "[manager] Open (LAN): http://$HOST_IP:$MANAGER_API_PORT"
+if [[ -n "$PUBLIC_HOST" ]]; then
+  echo "[manager] Open (public): http://$PUBLIC_HOST:$MANAGER_API_PORT"
+else
+  echo "[manager] Open (public): set MANAGER_PUBLIC_HOST to print public URL"
+fi

@@ -12,11 +12,22 @@
 curl -fsSL https://clawdbot-manager.pages.dev/install.sh | MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash
 ```
 
+如需自动安装 Node（无交互环境）：
+
+```bash
+MANAGER_AUTO_INSTALL_NODE=1 \
+MANAGER_ADMIN_USER=admin \
+MANAGER_ADMIN_PASS=pass \
+curl -fsSL https://clawdbot-manager.pages.dev/install.sh | bash
+```
+
 如需交互输入，去掉环境变量即可：
 
 ```bash
 curl -fsSL https://clawdbot-manager.pages.dev/install.sh | bash
 ```
+
+脚本会检测 Node.js，缺失时会询问是否自动安装。
 
 ### Windows (PowerShell)
 
@@ -57,3 +68,5 @@ curl -fsS -u admin:pass http://<your-host>:17321/api/status
 - `MANAGER_ADMIN_USER` / `MANAGER_ADMIN_PASS`：管理员账号
 - `MANAGER_API_PORT`：API 端口（默认 `17321`）
 - `MANAGER_API_HOST`：API 绑定地址（默认 `0.0.0.0`，对外可访问）
+- `MANAGER_PUBLIC_HOST`：公网地址（用于打印可访问链接）
+- `MANAGER_AUTO_INSTALL_NODE=1`：无 Node 时自动安装（无需交互）
