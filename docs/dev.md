@@ -51,6 +51,51 @@ pnpm lint
 pnpm build
 ```
 
+## 场景 5：验证方式选择
+
+目标：明确“验证目标”与“验证路径”的对应关系。
+
+### A) 只验证前端构建是否正常
+
+```bash
+pnpm --filter clawdbot-manager-web build
+```
+
+### B) 只验证后端构建是否正常
+
+```bash
+pnpm --filter clawdbot-manager-api build
+```
+
+### C) 验证 Web 能否连通 API
+
+1) 启动 API  
+2) 启动 Web  
+3) 浏览器访问页面
+
+```bash
+pnpm dev:api
+pnpm dev:web
+```
+
+### D) 走 CLI 进行端到端验证（推荐）
+
+一键隔离验证：
+```bash
+pnpm manager:verify
+```
+
+需要配对码时，可用非交互流程继续：
+```bash
+pnpm manager:pairing-approve -- --code "<PAIRING_CODE>" --continue
+```
+
+### E) 验证部署链路（可选）
+
+```bash
+pnpm deploy:pages
+```
+
 ## 场景 5：贡献协作流程
 
 目标：保证协作一致性与可追溯性。

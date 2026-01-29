@@ -35,6 +35,7 @@
 - `docs/logs/v0.0.33-dev-docs/README.md`
 - `docs/logs/v0.0.34-dev-docs-flow/README.md`
 - `docs/logs/v0.0.35-dev-docs-scenarios/README.md`
+- `docs/logs/v0.0.36-dev-docs-validation/README.md`
 
 ## 写日志的标准
 
