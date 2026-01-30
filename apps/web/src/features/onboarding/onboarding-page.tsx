@@ -10,7 +10,7 @@ import {
   ProbeStep,
   CompleteStep
 } from "@/components/wizard-steps";
-import type { OnboardingViewModel } from "./use-onboarding";
+import type { OnboardingViewModel } from "./onboarding-types";
 
 type OnboardingPageProps = {
   model: OnboardingViewModel;

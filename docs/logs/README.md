@@ -55,6 +55,7 @@
 - `docs/logs/v0.0.53-auto-deploy-default/README.md`
 - `docs/logs/v0.0.54-install-node-auto-public-url/README.md`
 - `docs/logs/v0.0.55-onboarding-ui-refactor/README.md`
+- `docs/logs/v0.0.56-onboarding-hook-split/README.md`
 
 ## 写日志的标准
 
