@@ -7,6 +7,7 @@
 ```bash
 curl -fsSL https://claw.cool/install.sh | bash
 ```
+安装过程中会提示设置管理员用户名和密码。
 
 **Windows**（暂未验证过，请谨慎使用）
 ```powershell
