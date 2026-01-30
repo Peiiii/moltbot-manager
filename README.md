@@ -1,77 +1,25 @@
 # Clawdbot Manager
+## Clawdbot 安装与配置工具
 
-面向 Clawdbot 的一键安装、配置、验证与运行控制台。
+### 安装 Manager
 
-## 快速开始
-
+**Mac / Linux**
 ```bash
-pnpm install
-pnpm dev
+curl -fsSL https://clawdbot-manager.pages.dev/install.sh | bash
 ```
 
-- 默认会自动打开：`http://127.0.0.1:5179`
-- API 默认端口：`17321`
-
-## 常用命令
-
-```bash
-pnpm dev
-pnpm dev:web
-pnpm dev:api
-pnpm build
-pnpm lint
-```
-
-## Cloudflare Pages 部署
-
-```bash
-pnpm deploy:pages
-```
-
-可选环境变量：
-
-- `CLOUDFLARE_PAGES_PROJECT`（默认 `clawdbot-manager`）
-- `CLOUDFLARE_PAGES_BRANCH`（默认 `main`）
-- `VITE_MANAGER_API_URL`（指向可访问的 HTTPS API）
-
-## VPS 一键安装（脚本）
-
-```bash
-curl -fsSL https://clawdbot-manager.pages.dev/install.sh | MANAGER_ADMIN_USER=admin MANAGER_ADMIN_PASS=pass bash
-```
-
-## 文档索引
-
-- 基础安装（非 Docker）：[docs/get-started-basic.md](docs/get-started-basic.md)
-- Docker 快速开始：[docs/get-started-docker.md](docs/get-started-docker.md)
-- 安装与前端使用：[docs/install.md](docs/install.md)
-- Docker 部署：[docs/docker.md](docs/docker.md)
-- CLI 快速验证：[docs/cli.md](docs/cli.md)
-- 开发者指南：[docs/dev.md](docs/dev.md)
-- 发布部署：[docs/deploy.md](docs/deploy.md)
-
-## Windows 一键安装（PowerShell）
-
+**Windows**
 ```powershell
-$env:MANAGER_ADMIN_USER="admin"
-$env:MANAGER_ADMIN_PASS="pass"
 irm https://clawdbot-manager.pages.dev/install.ps1 | iex
 ```
 
-可选环境变量：
+### 开始安装
 
-- `MANAGER_REPO_URL`（默认 `https://github.com/Peiiii/moltbot-manager.git`）
-- `MANAGER_INSTALL_DIR`
-- `MANAGER_CONFIG_DIR`
-- `MANAGER_ADMIN_USER`
-- `MANAGER_ADMIN_PASS`
-- `MANAGER_API_HOST`（默认 `0.0.0.0`）
-- `MANAGER_API_PORT`（默认 `17321`）
-
-脚本来源：`apps/web/public/install.sh` / `apps/web/public/install.ps1`（`scripts/install.sh` 为本地转发）
-
-## 目录结构
-
-- `apps/web`：Web 前端（React + Vite）
-- `apps/api`：本地 API 服务（Hono）
-- `packages/*`：预留扩展包（核心逻辑/共享类型/CLI）
+1. 运行安装命令 → Manager 服务自动启动
+2. 打开浏览器访问：`http://localhost:17321`
+3. 登录管理面板（安装时设置的用户名和密码）
+4. 安装 Clawdbot CLI
+5. 配置 Discord Bot Token
+6. 配置 AI 模型（API Key）
+7. 与 Bot 配对
+8. 完成，开始使用
