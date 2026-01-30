@@ -1,5 +1,5 @@
-# Clawdbot Manager
-## Clawdbot 安装与配置工具
+# OpenClaw Manager(Clawdbot Manager)
+## OpenClaw(Clawdbot) 安装与配置工具
 
 ### 安装 Manager
 
@@ -13,7 +13,7 @@ curl -fsSL https://clawdbot-manager.pages.dev/install.sh | bash
 irm https://clawdbot-manager.pages.dev/install.ps1 | iex
 ```
 
-### 开始安装
+### 使用 Manager 安装 OpenClaw
 
 1. 运行安装命令 → Manager 服务自动启动
 2. 打开浏览器访问：`http://localhost:17321`
