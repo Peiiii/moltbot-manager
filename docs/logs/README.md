@@ -69,6 +69,10 @@
 - `docs/logs/v0.0.67-cli-core/README.md`
 - `docs/logs/v0.0.68-oranize-meta/README.md`
 - `docs/logs/v0.0.69-readme-install-structure/README.md`
+- `docs/logs/v0.0.70-readme-top-format/README.md`
+- `docs/logs/v0.0.71-cli-ux-banner/README.md`
+- `docs/logs/v0.0.72-cli-ts-maintainability/README.md`
+- `docs/logs/v0.0.73-cli-release-guard/README.md`
 
 ## 写日志的标准
 

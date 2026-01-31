@@ -21,6 +21,8 @@
 - 完成所有：用户指令出现“完成所有/完成全部”等表述时，默认执行完整上线闭环：远程 migration -> 全量组件发布/部署（registry/console/cli/npm 包等，含版本号提升与发布）-> 线上冒烟验证；无需再次确认范围，不得省略任一环节。
 - NPM 发布：NPM 包发布属于“发布/上线”，必须纳入发布闭环与线上冒烟验证；发布流程详见 `docs/workflows/npm-release-process.md`，必须遵循。
 - 防止重复确认：用户已明确要求闭环/发布后，同一上下文不得再次询问是否发布，必须直接执行发布闭环并回报结果。
+- CLI 变更发布：只要涉及 `packages/cli` 或 CLI 行为变更，默认必须执行 npm 发布闭环（含版本号提升与发布）。
+- 发布失败兜底：npm 发布失败需自动尝试使用 `.npmrc.publish.local` / `NPM_TOKEN`；若因 2FA/权限失败，必须明确提示“需要 2FA bypass token”并停止，等待用户补齐。
 
 ---
 # Commands Index
@@ -77,6 +79,8 @@
 - **auto-deploy-pages-by-default**：用户要求变更后，默认执行 `pnpm deploy:pages` 完成 Pages 部署并做线上冒烟验证；除非用户明确要求不部署或部署受阻（如缺少 `CLOUDFLARE_API_TOKEN`）。执行方式：变更完成后自动部署并回报结果；责任人：当前助手。
 - **npm-release-counts-as-deploy**：npm 包发布属于“发布/上线”，必须遵守完整闭环（migrations apply -> deploy -> 线上冒烟验证），并按 `docs/workflows/npm-release-process.md` 执行。执行方式：发布阶段必须记录 npm 发布与线上冒烟结果；责任人：当次交付 owner。
 - **no-repeat-publish-ask-after-confirmation**：用户已明确要求闭环/发布后，不得再次询问是否发布，必须直接执行完整发布闭环并回报结果。执行方式：收到确认后视为授权持续有效，直到本次交付完成；责任人：当前助手。
+- **cli-change-requires-npm-release**：涉及 `packages/cli` 或 CLI 行为变更，默认必须执行 npm 发布闭环（含版本号提升与发布）。执行方式：变更完成后自动进入 npm 发布流程；责任人：当次交付 owner。
+- **npm-release-fallback-2fa**：npm 发布失败需自动尝试 `.npmrc.publish.local` 或 `NPM_TOKEN`，若仍失败且错误含 2FA/权限，必须明确提示需要 2FA bypass token 并停止等待。执行方式：发布失败时输出错误原因与下一步；责任人：当次交付 owner。
 
 ## 文档与迭代
 
