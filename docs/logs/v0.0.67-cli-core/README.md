@@ -59,6 +59,11 @@ pnpm deploy:pages
 线上验收：
 - `curl -fsS https://openclaw-manager.com/ > /dev/null`
 
+### npm 发布（已完成）
+
+- 发布版本：`openclaw-manager@0.1.2`
+- 执行命令：`pnpm release:publish`
+
 ## 影响范围 / 风险
 
 - 影响范围：`packages/cli`（CLI 入口）与 README 文案
