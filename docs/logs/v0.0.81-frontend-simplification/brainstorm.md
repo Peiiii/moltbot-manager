@@ -10,6 +10,7 @@
 
 - auth gate 在 App 层拦截，未登录不渲染 onboarding
 - auth 独立 store + manager，动作不与 config/onboarding 耦合
+- 默认强制登录：无 authHeader 即进入登录页
 
 ## 待继续讨论
 

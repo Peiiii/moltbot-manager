@@ -100,9 +100,7 @@ export const useStatusStore = create<StatusState>((set, get) => ({
       });
       if (res.status === 401) {
         auth.clearAuth();
-        auth.setAuthRequired(true);
         set({ loading: false, error: "需要登录" });
-        await auth.checkAuth();
         return;
       }
       if (!res.ok) throw new Error(`Status failed: ${res.status}`);

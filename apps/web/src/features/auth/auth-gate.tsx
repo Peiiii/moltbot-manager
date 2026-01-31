@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { AuthStep } from "@/components/wizard-steps";
 import { Card } from "@/components/ui/card";
@@ -8,35 +8,15 @@ import { useStatusStore } from "@/stores/status-store";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const presenter = usePresenter();
-  const authRequired = useAuthStore((state) => state.authRequired);
   const authHeader = useAuthStore((state) => state.authHeader);
   const refreshStatus = useStatusStore((state) => state.refresh);
 
-  const [checked, setChecked] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    const run = async () => {
-      await presenter.auth.checkAuth();
-      if (active) {
-        setChecked(true);
-      }
-    };
-    void run();
-    return () => {
-      active = false;
-    };
-  }, [presenter]);
-
-  if (!checked) {
-    return null;
-  }
-
-  if (!authRequired || authHeader) {
+  if (authHeader) {
     return <>{children}</>;
   }
 
