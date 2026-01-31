@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import type { WizardStep } from "@/components/wizard-sidebar";
 
 import type { OnboardingActions } from "./onboarding-types";
-import { resolveNextStep, stepIndex } from "./onboarding-steps";
+import type { OnboardingContext } from "./onboarding-machine";
 
 export function useStatusPolling(refresh: () => Promise<void>, jobsRunning: boolean) {
   useEffect(() => {
@@ -92,60 +92,29 @@ export function useAutoStartGateway(params: AutoStartParams) {
   ]);
 }
 
-type AutoAdvanceParams = {
+type OnboardingFlowParams = {
   hasStatus: boolean;
-  authRequired: boolean;
-  authHeader: string | null;
-  cliInstalled: boolean;
-  gatewayOk: boolean;
-  tokenConfigured: boolean;
-  aiConfigured: boolean;
-  allowFromConfigured: boolean;
-  probeOk: boolean;
-  setCurrentStep: (value: WizardStep | ((prev: WizardStep) => WizardStep)) => void;
+  context: OnboardingContext;
+  onStatusUpdate: (context: OnboardingContext) => void;
 };
 
-export function useAutoAdvanceStep(params: AutoAdvanceParams) {
-  const {
-    hasStatus,
-    authRequired,
-    authHeader,
-    cliInstalled,
-    gatewayOk,
-    tokenConfigured,
-    aiConfigured,
-    allowFromConfigured,
-    probeOk,
-    setCurrentStep
-  } = params;
+export function useOnboardingFlow(params: OnboardingFlowParams) {
+  const { hasStatus, context, onStatusUpdate } = params;
 
   useEffect(() => {
     if (!hasStatus) return;
-    const target = resolveNextStep({
-      authRequired,
-      authHeader,
-      cliInstalled,
-      gatewayOk,
-      tokenConfigured,
-      aiConfigured,
-      allowFromConfigured,
-      probeOk
-    });
-    setCurrentStep((prev) => {
-      if (prev === target) return prev;
-      return stepIndex(target) > stepIndex(prev) ? target : prev;
-    });
+    onStatusUpdate(context);
   }, [
     hasStatus,
-    authRequired,
-    authHeader,
-    cliInstalled,
-    gatewayOk,
-    tokenConfigured,
-    aiConfigured,
-    allowFromConfigured,
-    probeOk,
-    setCurrentStep
+    context.authRequired,
+    context.authHeader,
+    context.cliInstalled,
+    context.gatewayOk,
+    context.tokenConfigured,
+    context.aiConfigured,
+    context.allowFromConfigured,
+    context.probeOk,
+    onStatusUpdate
   ]);
 }
 

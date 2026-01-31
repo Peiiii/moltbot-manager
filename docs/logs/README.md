@@ -75,6 +75,7 @@
 - `docs/logs/v0.0.73-cli-release-guard/README.md`
 - `docs/logs/v0.0.74-cli-reset/README.md`
 - `docs/logs/v0.0.75-reset-shared/README.md`
+- `docs/logs/v0.0.76-onboarding-flow-state-machine/README.md`
 
 ## 写日志的标准
 

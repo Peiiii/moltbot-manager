@@ -7,7 +7,7 @@ import { useStatusStore } from "@/stores/status-store";
 import { deriveOnboardingStatus } from "../onboarding-derived";
 import {
   useAuthCheck,
-  useAutoAdvanceStep,
+  useOnboardingFlow,
   useAutoStartGateway,
   useEnterKeySubmit,
   useStatusPolling
@@ -51,17 +51,19 @@ export function OnboardingOrchestrator() {
     setMessage: presenter.onboarding.setMessage,
     setAutoStarted: presenter.onboarding.setAutoStarted
   });
-  useAutoAdvanceStep({
+  useOnboardingFlow({
     hasStatus: Boolean(status),
-    authRequired,
-    authHeader,
-    cliInstalled: derived.cliInstalled,
-    gatewayOk: derived.gatewayOk,
-    tokenConfigured: derived.tokenConfigured,
-    aiConfigured: derived.aiConfigured,
-    allowFromConfigured: derived.allowFromConfigured,
-    probeOk: derived.probeOk,
-    setCurrentStep: presenter.onboarding.setCurrentStep
+    context: {
+      authRequired,
+      authHeader,
+      cliInstalled: derived.cliInstalled,
+      gatewayOk: derived.gatewayOk,
+      tokenConfigured: derived.tokenConfigured,
+      aiConfigured: derived.aiConfigured,
+      allowFromConfigured: derived.allowFromConfigured,
+      probeOk: derived.probeOk
+    },
+    onStatusUpdate: presenter.onboarding.handleStatusUpdate
   });
   useEnterKeySubmit({
     currentStep,

@@ -22,11 +22,14 @@ export type OnboardingMessages = {
 
 type OnboardingState = {
   currentStep: WizardStep;
+  pendingStep: WizardStep | null;
+  pendingSince: string | null;
   inputs: OnboardingInputs;
   messages: OnboardingMessages;
   isProcessing: boolean;
   autoStarted: boolean;
   setCurrentStep: (value: WizardStep | ((prev: WizardStep) => WizardStep)) => void;
+  setPendingStep: (value: WizardStep | null) => void;
   setTokenInput: (value: string) => void;
   setAiProvider: (value: string) => void;
   setAiKeyInput: (value: string) => void;
@@ -63,6 +66,8 @@ const initialMessages: OnboardingMessages = {
 
 export const useOnboardingStore = create<OnboardingState>((set) => ({
   currentStep: "auth",
+  pendingStep: null,
+  pendingSince: null,
   inputs: initialInputs,
   messages: initialMessages,
   isProcessing: false,
@@ -71,6 +76,16 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
     set((state) => ({
       currentStep: typeof value === "function" ? value(state.currentStep) : value
     })),
+  setPendingStep: (value) =>
+    set((state) => {
+      if (state.pendingStep === value) {
+        return state;
+      }
+      return {
+        pendingStep: value,
+        pendingSince: value ? new Date().toISOString() : null
+      };
+    }),
   setTokenInput: (value) =>
     set((state) => ({ inputs: { ...state.inputs, tokenInput: value } })),
   setAiProvider: (value) =>
