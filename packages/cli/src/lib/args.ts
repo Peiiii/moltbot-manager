@@ -23,6 +23,8 @@ const shortKeyMap: Record<string, keyof CliFlags> = {
   p: "pass"
 };
 
+const validKeys = new Set<keyof CliFlags>(Object.values(longKeyMap));
+
 export function parseArgs(argv: string[]): ParsedArgs {
   const flags: CliFlags = {};
   const positionals: string[] = [];
@@ -75,6 +77,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 }
 
 function setFlag(flags: CliFlags, key: string, value: string) {
+  if (!validKeys.has(key as keyof CliFlags)) return;
   if (key === "apiPort") {
     const num = Number(value);
     if (Number.isFinite(num)) {
@@ -82,7 +85,5 @@ function setFlag(flags: CliFlags, key: string, value: string) {
       return;
     }
   }
-  if (key in flags || key in longKeyMap) {
-    (flags as Record<string, string>)[key] = value;
-  }
+  (flags as Record<string, string>)[key] = value;
 }

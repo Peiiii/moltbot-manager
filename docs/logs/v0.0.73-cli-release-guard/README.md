@@ -18,7 +18,7 @@ pnpm -r --if-present tsc
 
 # smoke-test: 非仓库目录校验规则可读
 cd /tmp
-rg "cli-change-requires-npm-release" /Users/tongwenwen/Projects/Peiiii/openclaw-manager/AGENTS.md
+rg "cli-change-requires-npm-release" /path/to/openclaw-manager/AGENTS.md
 ```
 
 验收点：

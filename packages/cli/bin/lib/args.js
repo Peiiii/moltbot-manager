@@ -19,6 +19,7 @@ const shortKeyMap = {
     u: "user",
     p: "pass"
 };
+const validKeys = new Set(Object.values(longKeyMap));
 export function parseArgs(argv) {
     const flags = {};
     const positionals = [];
@@ -74,6 +75,8 @@ export function parseArgs(argv) {
     return { command, flags };
 }
 function setFlag(flags, key, value) {
+    if (!validKeys.has(key))
+        return;
     if (key === "apiPort") {
         const num = Number(value);
         if (Number.isFinite(num)) {
@@ -81,7 +84,5 @@ function setFlag(flags, key, value) {
             return;
         }
     }
-    if (key in flags || key in longKeyMap) {
-        flags[key] = value;
-    }
+    flags[key] = value;
 }

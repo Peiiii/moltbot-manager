@@ -1,9 +1,9 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { listGatewayProcesses } from "../lib/system.js";
 import { stopManager } from "./stop.js";
 import { readPid } from "../lib/pids.js";
+import { listSandboxDirs } from "../lib/sandbox.js";
 export function stopAll(flags) {
     const messages = [];
     const errors = [];
@@ -11,7 +11,7 @@ export function stopAll(flags) {
     messages.push(...managerResult.messages);
     if (!managerResult.ok && managerResult.error)
         errors.push(managerResult.error);
-    const sandboxes = listSandboxInstances();
+    const sandboxes = listSandboxDirs();
     if (!sandboxes.length) {
         messages.push("sandbox: none");
     }
@@ -45,23 +45,6 @@ export function stopAll(flags) {
         return { ok: false, messages, error: errors.join("; ") };
     }
     return { ok: true, messages };
-}
-function listSandboxInstances() {
-    const dir = os.tmpdir();
-    let entries = [];
-    try {
-        entries = fs.readdirSync(dir, { withFileTypes: true });
-    }
-    catch {
-        return [];
-    }
-    return entries
-        .filter((entry) => {
-        return (entry.isDirectory() &&
-            (entry.name.startsWith("openclaw-manager-sandbox-") ||
-                entry.name.startsWith("clawdbot-manager-sandbox-")));
-    })
-        .map((entry) => path.join(dir, entry.name));
 }
 function stopSandboxDir(rootDir) {
     const pidFile = path.join(rootDir, "manager-api.pid");

@@ -19,8 +19,8 @@ pnpm -r --if-present tsc
 
 # smoke-test: 非仓库目录检查 README 结构
 cd /tmp
-rg "方式 A：NPM" /Users/tongwenwen/Projects/Peiiii/openclaw-manager/README.md
-rg "方式 B：脚本安装" /Users/tongwenwen/Projects/Peiiii/openclaw-manager/README.md
+rg "方式 A：NPM" /path/to/openclaw-manager/README.md
+rg "方式 B：脚本安装" /path/to/openclaw-manager/README.md
 ```
 
 验收点：

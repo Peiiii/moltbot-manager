@@ -13,10 +13,11 @@ openclaw-manager start
 常用命令：
 - `openclaw-manager stop`
 - `openclaw-manager stop-all`
+- `openclaw-manager reset`
 
 首次启动可显式指定账号密码：
 ```bash
-openclaw-manager start --user admin --password pass
+openclaw-manager start --user admin --pass pass
 ```
 
 #### 方式 B：脚本安装

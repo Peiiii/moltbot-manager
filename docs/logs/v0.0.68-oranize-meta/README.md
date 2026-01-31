@@ -19,7 +19,7 @@ pnpm -r --if-present tsc
 
 # smoke-test: 非仓库目录校验文档可读
 cd /tmp
-rg "交付与发布总则" /Users/tongwenwen/Projects/Peiiii/openclaw-manager/AGENTS.md
+rg "交付与发布总则" /path/to/openclaw-manager/AGENTS.md
 ```
 
 验收点：

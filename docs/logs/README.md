@@ -73,6 +73,7 @@
 - `docs/logs/v0.0.71-cli-ux-banner/README.md`
 - `docs/logs/v0.0.72-cli-ts-maintainability/README.md`
 - `docs/logs/v0.0.73-cli-release-guard/README.md`
+- `docs/logs/v0.0.74-cli-reset/README.md`
 
 ## 写日志的标准
 

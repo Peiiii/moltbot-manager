@@ -17,8 +17,8 @@ pnpm -r --if-present tsc
 
 # smoke-test: 非仓库目录校验顶部结构
 cd /tmp
-rg "^# OpenClaw Manager" /Users/tongwenwen/Projects/Peiiii/openclaw-manager/README.md
-rg "^> OpenClaw" /Users/tongwenwen/Projects/Peiiii/openclaw-manager/README.md
+rg "^# OpenClaw Manager" /path/to/openclaw-manager/README.md
+rg "^> OpenClaw" /path/to/openclaw-manager/README.md
 ```
 
 验收点：

@@ -1,4 +1,4 @@
-export type CliCommand = "" | "start" | "stop" | "stop-all" | "help";
+export type CliCommand = "" | "start" | "stop" | "stop-all" | "reset" | "help";
 
 export type StringFlag = string | boolean | undefined;
 

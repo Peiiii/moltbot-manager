@@ -7,6 +7,7 @@ import { readPackageVersion } from "./lib/version.js";
 import { startManager } from "./commands/start.js";
 import { stopManager } from "./commands/stop.js";
 import { stopAll } from "./commands/stop-all.js";
+import { resetManager } from "./commands/reset.js";
 
 const args = process.argv.slice(2);
 const parsed = parseArgs(args);
@@ -36,6 +37,10 @@ try {
     if (!result.ok) process.exit(1);
   } else if (cmd === "stop-all") {
     const result = stopAll(parsed.flags);
+    for (const line of result.messages) console.log(line);
+    if (!result.ok) process.exit(1);
+  } else if (cmd === "reset") {
+    const result = resetManager(parsed.flags);
     for (const line of result.messages) console.log(line);
     if (!result.ok) process.exit(1);
   } else {
