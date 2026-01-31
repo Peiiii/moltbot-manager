@@ -1,5 +1,5 @@
-# OpenClaw Manager
-## OpenClaw 安装与配置工具
+# OpenClaw Manager (Clawdbot Manager)
+## OpenClaw（Clawdbot）安装与配置工具
 
 ![OpenClaw Manager 截图](images/screenshots/openclaw-manager.png)
 
@@ -33,7 +33,7 @@ curl -fsSL https://openclaw-manager.com/docker.sh | bash
 1. 运行安装命令 → Manager 服务自动启动
 2. 打开浏览器访问：`http://localhost:17321`
 3. 登录管理面板（安装时设置的用户名和密码）
-4. 安装 OpenClaw CLI（当前 npm 包名仍为 `clawdbot`）
+4. 安装 OpenClaw CLI（Clawdbot CLI，npm 包名为 `clawdbot`）
 5. 配置 Discord Bot Token
 6. 配置 AI 模型（API Key）
 7. 与 Bot 配对
