@@ -1,25 +1,21 @@
 import { AuthStep } from "@/components/wizard-steps";
 import { usePresenter } from "@/presenter/presenter-context";
-import { useConfigStore } from "@/stores/config-store";
-import { useOnboardingStore } from "@/stores/onboarding-store";
+import { useOnboardingViewModel } from "../use-onboarding-view-model";
 
 export function AuthStepContainer() {
   const presenter = usePresenter();
-  const inputs = useOnboardingStore((state) => state.inputs);
-  const isProcessing = useOnboardingStore((state) => state.isProcessing);
-  const authMessage = useOnboardingStore((state) => state.messages.authMessage);
-  const authConfigured = useConfigStore((state) => state.authConfigured);
+  const { viewModel } = useOnboardingViewModel();
 
   return (
     <AuthStep
-      username={inputs.authUser}
-      password={inputs.authPass}
+      username={viewModel.auth.username}
+      password={viewModel.auth.password}
       onUsernameChange={presenter.onboarding.setAuthUser}
       onPasswordChange={presenter.onboarding.setAuthPass}
       onSubmit={presenter.onboarding.handleAuthSubmit}
-      isProcessing={isProcessing}
-      message={authMessage}
-      configured={authConfigured}
+      isProcessing={viewModel.auth.isProcessing}
+      message={viewModel.auth.message}
+      configured={viewModel.auth.configured}
     />
   );
 }

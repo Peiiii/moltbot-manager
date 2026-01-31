@@ -77,6 +77,8 @@
 - `docs/logs/v0.0.75-reset-shared/README.md`
 - `docs/logs/v0.0.76-onboarding-flow-state-machine/README.md`
 - `docs/logs/v0.0.77-npm-release-ui-guard/README.md`
+- `docs/logs/v0.0.78-onboarding-domain-mvp/README.md`
+- `docs/logs/v0.0.79-discord-allowfrom-strict/README.md`
 
 ## 写日志的标准
 

@@ -84,9 +84,7 @@ async function readDiscordTokenConfigured(runCommand: CommandRunner): Promise<bo
 
 async function readDiscordAllowFromConfigured(runCommand: CommandRunner): Promise<boolean> {
   const value = await readConfigValue(runCommand, "channels.discord.dm.allowFrom");
-  if (Array.isArray(value)) return value.length > 0;
-  if (value === "*") return true;
-  return false;
+  return Array.isArray(value) ? value.length > 0 : false;
 }
 
 async function readPendingDiscordPairings(runCommand: CommandRunner): Promise<number> {

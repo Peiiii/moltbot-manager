@@ -1,17 +1,7 @@
 import type { WizardStep } from "@/components/wizard-sidebar";
 
-import { resolveNextStep, stepIndex } from "./onboarding-steps";
-
-export type OnboardingContext = {
-  authRequired: boolean;
-  authHeader: string | null;
-  cliInstalled: boolean;
-  gatewayOk: boolean;
-  tokenConfigured: boolean;
-  aiConfigured: boolean;
-  allowFromConfigured: boolean;
-  probeOk: boolean;
-};
+import { resolveNextStep, stepIndex } from "../onboarding-steps";
+import type { OnboardingContext } from "./context";
 
 export type OnboardingFlowState = {
   currentStep: WizardStep;

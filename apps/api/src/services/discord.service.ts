@@ -34,7 +34,7 @@ async function ensureDiscordDmAllow(runCommand: CommandRunner) {
   if (value) {
     try {
       const parsed = JSON.parse(value) as unknown;
-      if (parsed === "*" || (Array.isArray(parsed) && parsed.length > 0)) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
         return;
       }
     } catch {
@@ -44,7 +44,7 @@ async function ensureDiscordDmAllow(runCommand: CommandRunner) {
 
   await runCommand(
     "clawdbot",
-    ["config", "set", "channels.discord.dm.allowFrom", "*"],
+    ["config", "set", "channels.discord.dm.allowFrom", "[\"*\"]"],
     8000
   );
 }

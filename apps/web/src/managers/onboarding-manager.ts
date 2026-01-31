@@ -1,5 +1,6 @@
 import type { WizardStep } from "@/components/wizard-sidebar";
-import { resolveOnboardingFlow, type OnboardingContext } from "@/features/onboarding/onboarding-machine";
+import type { OnboardingContext } from "@/features/onboarding/domain/context";
+import { resolveOnboardingFlow } from "@/features/onboarding/domain/machine";
 import { useConfigStore } from "@/stores/config-store";
 import { useJobsStore } from "@/stores/jobs-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";

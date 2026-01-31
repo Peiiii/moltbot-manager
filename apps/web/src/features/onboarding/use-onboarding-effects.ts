@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import type { WizardStep } from "@/components/wizard-sidebar";
 
 import type { OnboardingActions } from "./onboarding-types";
-import type { OnboardingContext } from "./onboarding-machine";
+import type { OnboardingContext } from "./domain/context";
 
 export function useStatusPolling(refresh: () => Promise<void>, jobsRunning: boolean) {
   useEffect(() => {

@@ -1,30 +1,21 @@
 import { CliStep } from "@/components/wizard-steps";
 import { usePresenter } from "@/presenter/presenter-context";
-import { useJobsStore } from "@/stores/jobs-store";
-import { useOnboardingStore } from "@/stores/onboarding-store";
-import { useStatusStore } from "@/stores/status-store";
-
-import { deriveOnboardingStatus } from "../onboarding-derived";
+import { useOnboardingViewModel } from "../use-onboarding-view-model";
 
 export function CliStepContainer() {
   const presenter = usePresenter();
-  const status = useStatusStore((state) => state.status);
-  const loading = useStatusStore((state) => state.loading);
-  const cliJob = useJobsStore((state) => state.cli);
-  const cliMessage = useOnboardingStore((state) => state.messages.cliMessage);
-  const isProcessing = useOnboardingStore((state) => state.isProcessing);
-  const derived = deriveOnboardingStatus(status, loading);
+  const { viewModel } = useOnboardingViewModel();
 
   return (
     <CliStep
-      installed={derived.cliInstalled}
-      version={derived.cliVersion}
-      isChecking={derived.cliChecking}
-      isProcessing={isProcessing}
-      message={cliMessage}
-      logs={cliJob.logs}
-      jobStatus={cliJob.status}
-      jobError={cliJob.error}
+      installed={viewModel.cli.installed}
+      version={viewModel.cli.version}
+      isChecking={viewModel.cli.isChecking}
+      isProcessing={viewModel.cli.isProcessing}
+      message={viewModel.cli.message}
+      logs={viewModel.cli.logs}
+      jobStatus={viewModel.cli.jobStatus}
+      jobError={viewModel.cli.jobError}
       onInstall={presenter.onboarding.handleCliInstall}
     />
   );
