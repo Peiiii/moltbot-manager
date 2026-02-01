@@ -89,6 +89,8 @@
 - `docs/logs/v0.0.87-remove-migration-artifacts/README.md`
 - `docs/logs/v0.0.88-onboarding-pairing-event/README.md`
 - `docs/logs/v0.0.89-onboarding-strict-step/README.md`
+- `docs/logs/v0.1.18-gateway-verify/README.md`
+- `docs/logs/v0.1.19-reset-openclaw/README.md`
 
 ## 写日志的标准
 
