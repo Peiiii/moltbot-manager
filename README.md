@@ -5,7 +5,7 @@
 
 > OpenClaw (formerly Clawdbot) installation and configuration tool. Complete installation, configuration, and pairing locally in one place.
 
-![OpenClaw Manager Screenshot](images/screenshots/openclaw-manager.png)
+![OpenClaw Manager Screenshot](images/screenshots/openclaw-manager-en.png)
 
 [中文文档](README.zh-CN.md)
 
