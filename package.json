@@ -43,6 +43,7 @@
     "changeset": "changeset",
     "release:check": "pnpm build:openclaw-manager && pnpm lint && pnpm -r --if-present tsc",
     "release:version": "changeset version",
-    "release:publish": "pnpm release:check && changeset publish"
+    "release:publish": "pnpm release:check && changeset publish",
+    "release":"pnpm changeset && pnpm release:version && pnpm release:publish"
   }
 }
