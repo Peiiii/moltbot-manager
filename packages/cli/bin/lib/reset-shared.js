@@ -55,6 +55,7 @@ function buildResetTargets(flags, sandboxDirs) {
     const configDirs = resolveConfigDirs(flags);
     const installDirs = resolveInstallDirs(flags);
     const openclawDir = resolveOpenclawDir();
+    const legacyClawdbotDir = resolveLegacyClawdbotDir();
     const sandboxes = sandboxDirs && sandboxDirs.length ? sandboxDirs : listSandboxDirs();
     const targets = [
         ...configDirs.map((dir) => ({ label: "config", path: dir })),
@@ -63,6 +64,9 @@ function buildResetTargets(flags, sandboxDirs) {
     ];
     if (openclawDir) {
         targets.push({ label: "openclaw", path: openclawDir });
+    }
+    if (legacyClawdbotDir) {
+        targets.push({ label: "clawdbot", path: legacyClawdbotDir });
     }
     return targets.filter((entry) => Boolean(entry.path));
 }
@@ -95,6 +99,12 @@ function resolveOpenclawDir() {
         return explicit;
     return path.join(os.homedir(), ".openclaw");
 }
+function resolveLegacyClawdbotDir() {
+    const explicit = normalizePath(process.env.CLAWDBOT_STATE_DIR);
+    if (explicit)
+        return explicit;
+    return path.join(os.homedir(), ".clawdbot");
+}
 function listSandboxDirs() {
     const dir = os.tmpdir();
     let entries = [];
@@ -121,7 +131,8 @@ function isExpectedResetPath(resolved) {
     const normalized = resolved.replace(/\\/g, "/");
     return (normalized.includes("/openclaw-manager") ||
         normalized.includes("/.openclaw-manager") ||
-        normalized.includes("/.openclaw"));
+        normalized.includes("/.openclaw") ||
+        normalized.includes("/.clawdbot"));
 }
 function normalizePath(value) {
     if (typeof value !== "string")

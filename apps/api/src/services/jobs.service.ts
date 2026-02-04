@@ -29,17 +29,7 @@ export function createCliInstallJob(deps: ApiDeps) {
     }
 
     const installResult = await runCliInstall(async (candidate) => {
-      deps.jobStore.appendLog(job.id, `Installing ${candidate.packageName}@latest...`);
-      await runCommandWithLogs("npm", ["i", "-g", `${candidate.packageName}@latest`], {
-        cwd: deps.repoRoot,
-        env: {
-          ...process.env,
-          NPM_CONFIG_AUDIT: "false",
-          NPM_CONFIG_FUND: "false"
-        },
-        timeoutMs,
-        onLog: (line) => deps.jobStore.appendLog(job.id, line)
-      });
+      await installCliWithFallbacks(deps, job.id, candidate.packageName, timeoutMs);
     });
     if (!installResult.ok) {
       throw new Error(installResult.error);
@@ -58,6 +48,115 @@ export function createCliInstallJob(deps: ApiDeps) {
   });
 
   return job.id;
+}
+
+type CliInstallAttempt = {
+  label: string;
+  args: string[];
+  env: NodeJS.ProcessEnv;
+  note?: string;
+};
+
+function buildCliInstallAttempts(
+  packageName: string,
+  baseEnv: NodeJS.ProcessEnv
+): CliInstallAttempt[] {
+  const baseArgs = ["i", "-g", `${packageName}@latest`];
+  return [
+    {
+      label: "standard",
+      args: baseArgs,
+      env: baseEnv
+    },
+    {
+      label: "no-peer-deps",
+      args: [...baseArgs, "--legacy-peer-deps", "--omit=optional"],
+      env: {
+        ...baseEnv,
+        NPM_CONFIG_LEGACY_PEER_DEPS: "true",
+        NPM_CONFIG_OMIT: "optional"
+      },
+      note: "Retrying without peer dependencies and optional packages."
+    },
+    {
+      label: "no-scripts",
+      args: [...baseArgs, "--legacy-peer-deps", "--omit=optional", "--ignore-scripts"],
+      env: {
+        ...baseEnv,
+        NPM_CONFIG_LEGACY_PEER_DEPS: "true",
+        NPM_CONFIG_OMIT: "optional",
+        NPM_CONFIG_IGNORE_SCRIPTS: "true"
+      },
+      note: "Installing with scripts disabled; some optional features may be unavailable."
+    }
+  ];
+}
+
+async function installCliWithFallbacks(
+  deps: ApiDeps,
+  jobId: string,
+  packageName: string,
+  timeoutMs: number
+) {
+  const baseEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    NPM_CONFIG_AUDIT: "false",
+    NPM_CONFIG_FUND: "false"
+  };
+  const attempts = buildCliInstallAttempts(packageName, baseEnv);
+  let lastError: string | null = null;
+
+  for (let index = 0; index < attempts.length; index += 1) {
+    const attempt = attempts[index];
+    if (index === 0) {
+      deps.jobStore.appendLog(
+        jobId,
+        `Installing ${packageName}@latest (${attempt.label})...`
+      );
+    } else {
+      deps.jobStore.appendLog(jobId, `Retrying installation (${attempt.label})...`);
+      await removeGlobalPackage(deps, jobId, packageName, timeoutMs, baseEnv);
+    }
+    if (attempt.note) {
+      deps.jobStore.appendLog(jobId, attempt.note);
+    }
+    try {
+      await runCommandWithLogs("npm", attempt.args, {
+        cwd: deps.repoRoot,
+        env: attempt.env,
+        timeoutMs,
+        onLog: (line) => deps.jobStore.appendLog(jobId, line)
+      });
+      return;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      deps.jobStore.appendLog(
+        jobId,
+        `Install attempt (${attempt.label}) failed: ${lastError}`
+      );
+    }
+  }
+
+  throw new Error(lastError ?? "install failed");
+}
+
+async function removeGlobalPackage(
+  deps: ApiDeps,
+  jobId: string,
+  packageName: string,
+  timeoutMs: number,
+  env: NodeJS.ProcessEnv
+) {
+  try {
+    await runCommandWithLogs("npm", ["rm", "-g", packageName], {
+      cwd: deps.repoRoot,
+      env,
+      timeoutMs,
+      onLog: (line) => deps.jobStore.appendLog(jobId, line)
+    });
+  } catch {
+    // ignore removal failures before retry
+  }
 }
 
 export function createQuickstartJob(deps: ApiDeps, body: QuickstartRequest) {

@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -41,11 +41,13 @@ export function runCommandWithLogs(
     const child = spawn(cmd, args, {
       cwd: options.cwd,
       stdio: ["ignore", "pipe", "pipe"],
-      env: options.env
+      env: options.env,
+      detached: process.platform !== "win32"
     });
 
     let stdoutBuffer = "";
     let stderrBuffer = "";
+    let timedOut = false;
 
     const flushLines = (buffer: string, prefix?: string) => {
       const lines = buffer.split(/\r?\n/);
@@ -60,7 +62,8 @@ export function runCommandWithLogs(
     };
 
     const timer = setTimeout(() => {
-      child.kill("SIGTERM");
+      timedOut = true;
+      terminateProcessTree(child);
       reject(new Error("timeout"));
     }, options.timeoutMs);
 
@@ -88,7 +91,10 @@ export function runCommandWithLogs(
         options.onLog(`stderr: ${stderrBuffer.trimEnd()}`);
       }
       if (code === 0) resolve();
-      else reject(new Error(`exit ${code ?? "unknown"}`));
+      else {
+        if (timedOut) return;
+        reject(new Error(`exit ${code ?? "unknown"}`));
+      }
     });
   });
 }
@@ -103,14 +109,17 @@ function runCommand(
     const child = spawn(cmd, args, {
       cwd: options.cwd,
       stdio: ["ignore", "pipe", "pipe"],
-      env: options.env
+      env: options.env,
+      detached: process.platform !== "win32"
     });
 
     let output = "";
     let error = "";
+    let timedOut = false;
 
     const timer = setTimeout(() => {
-      child.kill("SIGTERM");
+      timedOut = true;
+      terminateProcessTree(child);
       reject(new Error("timeout"));
     }, timeoutMs);
 
@@ -130,7 +139,36 @@ function runCommand(
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code === 0) resolve(output);
-      else reject(new Error(error || output));
+      else {
+        if (timedOut) return;
+        reject(new Error(error || output));
+      }
     });
   });
+}
+
+function terminateProcessTree(child: ChildProcess) {
+  const pid = child.pid;
+  if (!pid) return;
+  if (process.platform !== "win32") {
+    try {
+      process.kill(-pid, "SIGTERM");
+    } catch {
+      // ignore and fall back
+    }
+  }
+  try {
+    child.kill("SIGTERM");
+  } catch {
+    // ignore kill errors
+  }
+  if (process.platform !== "win32") {
+    setTimeout(() => {
+      try {
+        process.kill(-pid, "SIGKILL");
+      } catch {
+        // ignore
+      }
+    }, 2000);
+  }
 }

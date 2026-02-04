@@ -1,4 +1,3 @@
-import { parseJsonFromCliOutput } from "../lib/cli-output.js";
 import { resolveCli } from "../lib/openclaw-cli.js";
 import { parsePositiveInt } from "../lib/utils.js";
 import type { CommandRunner } from "../lib/runner.js";
@@ -22,10 +21,6 @@ export async function saveDiscordToken(runCommand: CommandRunner, token: string)
     return { ok: false, error: formatStepError(setResult, timeoutMs) };
   }
 
-  const allowResult = await ensureDiscordDmAllow(runCommand, cli.command, timeoutMs);
-  if (!allowResult.ok) {
-    return { ok: false, error: allowResult.error };
-  }
   return { ok: true } as const;
 }
 
@@ -38,39 +33,6 @@ export async function approveDiscordPairing(runCommand: CommandRunner, code: str
       ok: false,
       error: err instanceof Error ? err.message : String(err)
     }));
-}
-
-async function ensureDiscordDmAllow(
-  runCommand: CommandRunner,
-  command: string,
-  timeoutMs: number
-) {
-  const getResult = await runCommandStep(
-    runCommand,
-    command,
-    "config get allowFrom",
-    ["config", "get", "channels.discord.dm.allowFrom", "--json"],
-    timeoutMs
-  );
-
-  if (getResult.ok) {
-    const parsed = parseJsonFromCliOutput(getResult.output);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return { ok: true } as const;
-    }
-  }
-
-  const setResult = await runCommandStep(
-    runCommand,
-    command,
-    "config set allowFrom",
-    ["config", "set", "channels.discord.dm.allowFrom", "[\"*\"]"],
-    timeoutMs
-  );
-  if (!setResult.ok) {
-    return { ok: false, error: formatStepError(setResult, timeoutMs) } as const;
-  }
-  return { ok: true } as const;
 }
 
 async function runCommandStep(

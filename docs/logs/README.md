@@ -91,6 +91,9 @@
 - `docs/logs/v0.0.89-onboarding-strict-step/README.md`
 - `docs/logs/v0.1.18-gateway-verify/README.md`
 - `docs/logs/v0.1.19-reset-openclaw/README.md`
+- `docs/logs/v0.1.21-vps-cli-install-fallback/README.md`
+- `docs/logs/v0.1.22-cli-process-cleanup/README.md`
+- `docs/logs/v0.1.23-pairing-reset-required/README.md`
 
 ## 写日志的标准
 
